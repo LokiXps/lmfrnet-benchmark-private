@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LMFRNet Web Benchmark</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- ONNX Runtime Web -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+</head>
+<body>
+    <div class="background-glow"></div>
+    
+    <main class="container">
+        <header>
+            <h1>LMFRNet <span class="accent">Benchmark</span></h1>
+            <p class="subtitle">Browser-based Inference Performance Test</p>
+        </header>
+
+        <div class="glass-panel control-panel">
+            <div class="input-group">
+                <label for="model-select">Select Model</label>
+                <div class="select-wrapper">
+                    <select id="model-select">
+                        <option value="lmfrnet">LMFRNet (Proposed)</option>
+                        <option value="mobilenetv3_large">MobileNetV3 Large</option>
+                        <option value="resnet18">ResNet-18</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group">
+                <label>Upload Image</label>
+                <div class="file-drop-area" id="drop-area">
+                    <input type="file" id="file-input" accept="image/*" hidden>
+                    <div class="drop-message">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                            <polyline points="17 8 12 3 7 8"></polyline>
+                            <line x1="12" y1="3" x2="12" y2="15"></line>
+                        </svg>
+                        <span>Click or Drop Image</span>
+                    </div>
+                </div>
+            </div>
+
+            <button id="run-btn" class="primary-btn" disabled>
+                <span class="btn-text">Run Inference</span>
+                <div class="loading-spinner hidden"></div>
+            </button>
+        </div>
+
+        <div class="glass-panel result-panel hidden" id="result-panel">
+            <div class="image-preview-container">
+                <canvas id="input-canvas"></canvas>
+            </div>
+            
+            <div class="metrics-container">
+                <div class="metric-card">
+                    <span class="metric-label">Prediction</span>
+                    <span class="metric-value accent" id="pred-label">---</span>
+                    <span class="metric-sub" id="pred-conf">---%</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Inference Time</span>
+                    <span class="metric-value" id="infer-time">---</span>
+                    <span class="metric-sub">ms</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-label">Device</span>
+                    <span class="metric-value small" id="device-info">---</span>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
