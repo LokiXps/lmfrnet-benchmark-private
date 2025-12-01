@@ -610,7 +610,9 @@
             enableRunButtons(false);
 
             try {
-                session = await ort.InferenceSession.create(path, {
+                // Cache busting
+                const loadPath = `${path}?t=${Date.now()}`;
+                session = await ort.InferenceSession.create(loadPath, {
                     executionProviders: ['wasm'],
                     graphOptimizationLevel: 'all'
                 });
@@ -662,6 +664,10 @@
                 canvas.width = target;
                 canvas.height = target;
                 const ctx = canvas.getContext('2d');
+
+                // High quality resize settings
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
                 // Python: transforms.Resize(256) -> transforms.CenterCrop(224)
                 // JS: Resize short edge to 256, then center crop 224
