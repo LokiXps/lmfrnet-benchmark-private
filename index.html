@@ -3,174 +3,775 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="robots" content="noindex, nofollow">
-    <title>LMFRNet オフライン推論ラボ</title>
-    <link rel="manifest" href="manifest.json">
-    <link rel="stylesheet" href="style.css">
+    <title>ローカル環境で画像認識精度実験</title>
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ライトモード設定 */
+        :root {
+            --bg: #f5f5f7;
+            --surface: #ffffff;
+            --surface-highlight: #f0f0f5;
+            --border: #d1d1d6;
+            --primary: #007aff;
+            --success: #34c759;
+            --danger: #ff3b30;
+            --text-main: #1c1c1e;
+            --text-sub: #8e8e93;
+            --font-mono: 'SF Mono', 'Menlo', monospace;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            padding-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .app-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 16px;
+        }
+
+        .panel {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 16px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+        }
+
+        .panel-header {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: #fafafa;
+            font-weight: 700;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-main);
+        }
+
+        /* Metrics Grid */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border);
+        }
+
+        .metric-box {
+            background: var(--surface);
+            padding: 12px;
+            text-align: center;
+        }
+
+        .metric-val {
+            font-size: 20px;
+            font-weight: 800;
+            font-family: var(--font-mono);
+            color: var(--primary);
+        }
+
+        .metric-label {
+            font-size: 11px;
+            color: var(--text-sub);
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        /* Improved Table */
+        .log-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+            table-layout: fixed;
+        }
+
+        .log-table th {
+            text-align: left;
+            color: var(--text-sub);
+            font-weight: 600;
+            padding: 10px;
+            border-bottom: 1px solid var(--border);
+            background: #f9f9f9;
+            font-size: 11px;
+        }
+
+        .log-table td {
+            padding: 10px;
+            border-bottom: 1px solid #f0f0f0;
+            vertical-align: middle;
+            color: var(--text-main);
+        }
+
+        .col-img {
+            width: 70px;
+        }
+
+        .col-res {
+            width: 40px;
+            text-align: center;
+        }
+
+        .col-conf {
+            width: 60px;
+            text-align: right;
+            font-family: var(--font-mono);
+            font-size: 11px;
+            color: #888;
+        }
+
+        .status-icon {
+            font-size: 16px;
+        }
+
+        .status-ok {
+            color: var(--success);
+        }
+
+        .status-ng {
+            color: var(--danger);
+        }
+
+        .thumb {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 6px;
+            background: #eee;
+            border: 1px solid #eee;
+            cursor: zoom-in;
+            transition: transform 0.1s;
+        }
+
+        .thumb:active {
+            transform: scale(0.95);
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            height: 6px;
+            background: #e5e5ea;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 12px;
+            display: none;
+            /* Initially hidden */
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--primary);
+            width: 0%;
+            transition: width 0.2s ease-out;
+        }
+
+        /* Controls */
+        select,
+        input[type="text"] {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 8px;
+            border-radius: 8px;
+            width: 100%;
+            font-size: 14px;
+        }
+
+        button {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        button:active {
+            transform: scale(0.98);
+            background: #f0f0f0;
+        }
+
+        button.primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            filter: grayscale(100%);
+        }
+
+        /* Custom Input List */
+        .custom-item {
+            display: flex;
+            gap: 10px;
+            padding: 10px;
+            align-items: center;
+            border-bottom: 1px solid #eee;
+        }
+
+        .custom-item:last-child {
+            border-bottom: none;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            background: #e5e5ea;
+            padding: 4px;
+            border-radius: 10px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 8px;
+            text-align: center;
+            border-radius: 7px;
+            color: #666;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .tab.active {
+            background: white;
+            color: black;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Dataset Grid */
+        .dataset-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+            gap: 8px;
+            padding: 8px;
+        }
+
+        .dataset-item {
+            position: relative;
+            aspect-ratio: 1;
+            overflow: hidden;
+            border-radius: 6px;
+            border: 1px solid #eee;
+        }
+
+        .dataset-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .dataset-label {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 9px;
+            padding: 2px 4px;
+            text-align: center;
+            border-top: 1px solid #eee;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            max-width: 90%;
+            max-height: 90%;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .modal-content img {
+            max-width: 100%;
+            max-height: 80vh;
+            display: block;
+        }
+
+        .model-badge {
+            font-size: 11px;
+            background: #e0f2fe;
+            color: #0369a1;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: normal;
+            margin-left: 8px;
+            font-family: var(--font-mono);
+        }
+
+        /* Result Text Styles */
+        .res-label {
+            display: block;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+
+        .res-sub {
+            display: block;
+            font-size: 10px;
+            color: #888;
+            margin-top: 2px;
+        }
+
+        .res-correct {
+            color: var(--success);
+        }
+
+        .res-error {
+            color: var(--danger);
+        }
+    </style>
 </head>
 
 <body>
-    <div class="page-shell">
-        <header class="hero card">
-            <div class="hero-copy">
-                <p class="eyebrow">On-device · Web · Offline</p>
-                <h1>LMFRNet オフライン推論ラボ</h1>
-                <p class="lede">
-                    200枚のCaltech-101ベンチマークも、自前データの一括推論も、すべてブラウザ内で完結。
-                    オフラインでスマホ（iPhone含む）から試せるように作り直しました。
-                </p>
-                <div class="hero-actions">
-                    <button class="btn primary" id="hero-single-btn">1枚ですぐ試す</button>
-                    <button class="btn ghost" id="hero-benchmark-btn">200枚ベンチを走らせる</button>
-                    <a class="btn text" href="gallery.html" target="_blank" rel="noreferrer">評価画像を一覧で確認</a>
-                </div>
-                <div class="chip-row">
-                    <span class="chip" id="offline-chip">オフライン準備: 未実施</span>
-                    <span class="chip subtle" id="device-info"></span>
-                </div>
+
+    <div class="app-container">
+        <header class="flex justify-between items-center mb-4">
+            <div>
+                <h1 class="text-lg font-bold text-gray-900">ローカル環境で画像認識精度実験</h1>
+                <p class="text-xs text-gray-500">オンデバイス推論 / オフライン対応</p>
             </div>
-            <div class="hero-panel">
-                <div class="field">
-                    <label for="model-select">モデル選択</label>
-                    <select id="model-select">
-                        <option value="lmfrnet">LMFRNet (標準)</option>
-                        <option value="lmfrnet_hires">LMFRNet (高解像度版)</option>
-                        <option value="resnet18">ResNet-18</option>
-                        <option value="mobilenetv3_large">MobileNetV3 Large</option>
-                    </select>
-                </div>
-                <div id="model-status-container" class="status-stack"></div>
-                <button class="btn secondary block" id="offline-prep-btn">端末に必要ファイルをキャッシュ</button>
-                <p class="tiny muted" id="offline-status">モデル・200枚の画像・ラベルを端末に保存してオフライン動作を保証します。</p>
-            </div>
+            <div id="model-status" class="text-xs px-2 py-1 rounded bg-gray-200 text-gray-500 font-bold">未ロード</div>
         </header>
 
-        <main class="grid">
-            <section class="card">
-                <div class="section-head">
-                    <div>
-                        <p class="eyebrow">単発テスト</p>
-                        <h2>1枚の画像で即確認</h2>
-                        <p class="muted">ドラッグ&ドロップまたは選択。推論は端末内だけで完結します。</p>
-                    </div>
-                    <button class="btn ghost sm" id="clear-single-btn">リセット</button>
-                </div>
+        <!-- Load Section -->
+        <div class="panel p-4 flex gap-2 items-end bg-white">
+            <div class="flex-1">
+                <label class="text-xs text-gray-500 block mb-1 font-bold">モデルファイル (.onnx)</label>
+                <input type="text" id="model-path" value="./models_caltech101/lmfrnet.onnx"
+                    placeholder="例: ./models_caltech101/lmfrnet.onnx">
+            </div>
+            <button onclick="loadModel()" id="load-btn" class="whitespace-nowrap">モデル読み込み</button>
+        </div>
 
-                <div id="single-dropzone" class="dropzone">
-                    <input type="file" id="single-file-input" accept="image/*" hidden>
-                    <p class="drop-title">ここに画像をドロップ</p>
-                    <p class="muted">PNG/JPGなど。プレビュー後に推論を実行できます。</p>
-                    <div class="drop-actions">
-                        <button class="btn tertiary" id="choose-single-btn">ファイルを選択</button>
-                        <button class="btn primary" id="run-single-btn" disabled>推論を実行</button>
-                    </div>
-                </div>
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('bench')">1. 精度実験 (200枚)</div>
+            <div class="tab" onclick="switchTab('dataset')">2. データセット確認</div>
+            <div class="tab" onclick="switchTab('custom')">3. カスタム検証</div>
+        </div>
 
-                <div id="single-result" class="preview-panel hidden">
-                    <div class="preview">
-                        <canvas id="input-canvas"></canvas>
+        <!-- TAB 1: Benchmark -->
+        <div id="view-bench">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>実験結果</span>
+                    <span class="model-badge model-name-display">Model: ---</span>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-acc">--</div>
+                        <div class="metric-label">正解率 (Accuracy)</div>
                     </div>
-                    <div class="metrics">
-                        <div class="metric-item">
-                            <span class="label">予測クラス</span>
-                            <span class="value" id="pred-label">---</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="label">確信度</span>
-                            <span class="value" id="pred-conf">---%</span>
-                        </div>
-                        <div class="metric-item">
-                            <span class="label">推論時間</span>
-                            <span class="value" id="infer-time">--- ms</span>
-                        </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-time">--ms</div>
+                        <div class="metric-label">平均推論時間</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-prog">0/200</div>
+                        <div class="metric-label">完了数</div>
                     </div>
                 </div>
-            </section>
+                <div class="p-4 border-t border-[var(--border)]">
+                    <button class="primary w-full py-3" id="btn-run-bench" onclick="runBenchmark()"
+                        disabled>200枚ベンチマーク実行</button>
 
-            <section class="card">
-                <div class="section-head">
-                    <div>
-                        <p class="eyebrow">バッチ / ベンチマーク</p>
-                        <h2>標準200枚かローカル画像をまとめて推論</h2>
-                        <p class="muted">標準セットは Caltech-101 の 200 枚（samples.json 参照）。ローカル画像はラベルなしで予測一覧を出します。</p>
+                    <!-- Progress Bar -->
+                    <div id="bench-progress-container" class="progress-container">
+                        <div id="bench-progress-bar" class="progress-bar"></div>
                     </div>
-                    <a class="btn text sm" href="gallery.html" target="_blank" rel="noreferrer">200枚の中身を確認</a>
+
+                    <p class="text-xs text-gray-400 mt-2 text-center">※ ./samples/ 以下の画像を順次読み込みます</p>
                 </div>
+            </div>
 
-                <div class="benchmark-grid">
-                    <div class="block">
-                        <div class="block-head">
-                            <h3>標準ベンチマーク</h3>
-                            <p class="muted" id="standard-summary">200枚 / Caltech-101</p>
-                        </div>
-                        <button class="btn primary block" id="run-benchmark-btn">200枚ベンチを実行</button>
-                        <p class="tiny muted">精度・平均時間・各画像の判定をテーブルで表示します。</p>
-                    </div>
-
-                    <div class="block">
-                        <div class="block-head">
-                            <h3>ローカル画像一括推論</h3>
-                            <p class="muted">ラベル不要。結果は一覧で保存なし。</p>
-                        </div>
-                        <div id="batch-dropzone" class="dropzone compact">
-                            <input type="file" id="batch-file-input" accept="image/*" multiple hidden>
-                            <p class="drop-title">複数画像をドロップ</p>
-                            <p class="muted">iPhoneでもファイルを選択すればOK。オフライン可。</p>
-                            <div class="drop-actions">
-                                <button class="btn tertiary sm" id="choose-batch-btn">画像を選択</button>
-                            </div>
-                        </div>
-                        <p class="muted" id="batch-summary">0枚選択中</p>
-                        <button class="btn secondary block" id="run-batch-btn" disabled>ローカル画像を推論</button>
-                    </div>
+            <div class="panel">
+                <div class="panel-header">
+                    <span>実験結果(詳細)</span>
+                    <span class="text-xs font-normal text-gray-500">画像クリックで拡大</span>
                 </div>
-
-                <div class="custom-block">
-                    <div class="section-head slim">
-                        <div>
-                            <p class="eyebrow">任意</p>
-                            <h3>ラベル付きカスタム検証</h3>
-                            <p class="muted">自前データで精度を出したい場合はここに追加。1つのラベルを複数枚に割り当て可能。</p>
-                        </div>
-                    </div>
-                    <div class="custom-input-area">
-                        <input type="file" id="custom-file-input" accept="image/*">
-                        <select id="custom-label-select" disabled>
-                            <option value="">正解ラベルを選択...</option>
-                        </select>
-                        <button id="add-custom-btn" class="btn secondary" disabled>リストに追加</button>
-                    </div>
-                    <div id="custom-list" class="custom-list hidden"></div>
-                    <button id="run-custom-benchmark-btn" class="btn secondary hidden">ラベル付きセットを評価</button>
-                </div>
-            </section>
-
-            <section id="result-panel" class="card hidden">
-                <div class="section-head">
-                    <div>
-                        <p class="eyebrow">結果</p>
-                        <h2>推論のサマリー</h2>
-                    </div>
-                </div>
-
-                <div id="benchmark-result" class="result-block hidden">
-                    <h3>標準ベンチマーク</h3>
-                    <table class="result-table">
-                        <tbody id="benchmark-table-body"></tbody>
+                <div class="max-h-[400px] overflow-y-auto bg-white">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th class="col-res">判定</th>
+                                <th class="col-img">画像(正解)</th>
+                                <th>正解ラベル vs 予測結果</th>
+                                <th class="col-conf">確信度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bench-table-body">
+                            <!-- JS inject -->
+                        </tbody>
                     </table>
-                    <div class="table-container">
-                        <table class="detail-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>画像</th>
-                                    <th>正解</th>
-                                    <th>予測</th>
-                                    <th>確信度</th>
-                                    <th>結果</th>
-                                </tr>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 2: Dataset Preview -->
+        <div id="view-dataset" class="hidden">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Caltech101 テスト用データセット (200枚)</span>
+                </div>
+                <div class="p-2 bg-gray-50">
+                    <p class="text-xs text-gray-500 mb-2 px-1">ベンチマークに使用される全画像リストです。画像をクリックするとパスを確認できます。</p>
+                    <div id="dataset-grid" class="dataset-grid">
+                        <div class="p-4 text-center text-gray-400 col-span-full">読み込み中...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB 3: Custom -->
+        <div id="view-custom" class="hidden">
+            <div class="panel p-4">
+                <div class="mb-4">
+                    <label class="block text-xs text-gray-500 font-bold mb-2">検証したい画像を追加 (複数選択可)</label>
+                    <input type="file" id="custom-files" accept="image/*" multiple class="
+                  block w-full text-sm text-slate-500
+                  file:mr-4 file:py-2 file:px-4
+                  file:rounded-full file:border-0
+                  file:text-sm file:font-semibold
+                  file:bg-blue-50 file:text-blue-700
+                  hover:file:bg-blue-100
+                  cursor-pointer
+                " onchange="handleCustomFiles(this)">
+                </div>
+
+                <div id="custom-staging"
+                    class="space-y-2 mb-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 min-h-[100px] flex flex-col justify-center">
+                    <p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button class="flex-1 bg-white text-gray-600" onclick="clearCustom()">クリア</button>
+                    <button class="primary flex-1" id="btn-run-custom" onclick="runCustomBatch()" disabled>検証開始</button>
+                </div>
+            </div>
+
+            <div class="panel" id="custom-result-panel" style="display:none;">
+                <div class="panel-header">
+                    <span>検証結果</span>
+                    <span class="model-badge model-name-display">Model: ---</span>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-acc">--</div>
+                        <div class="metric-label">正解率</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-count">0</div>
+                        <div class="metric-label">枚数</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-time">--ms</div>
+                        <div class="metric-label">平均時間</div>
+                    </div>
+                </div>
+                <div class="max-h-[400px] overflow-y-auto bg-white">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th class="col-res">判定</th>
+                                <th class="col-img">画像</th>
+                                <th>指定ラベル vs 予測</th>
+                                <th class="col-conf">確信度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="custom-table-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image Modal -->
+    <div id="image-modal" class="modal-overlay" onclick="closeModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <img id="modal-img" src="">
+            <div class="p-2 bg-white text-center">
+                <button class="text-sm text-blue-500 font-bold" onclick="closeModal()">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration & Data ---
+        // ラベル定義 (Caltech-101)
+        const LABELS = [
+            { en: "background", ja: "背景" }, { en: "Faces", ja: "顔" }, { en: "Faces_easy", ja: "顔(Easy)" },
+            { en: "Leopards", ja: "ヒョウ" }, { en: "Motorbikes", ja: "バイク" }, { en: "accordion", ja: "アコーディオン" },
+            { en: "airplane", ja: "飛行機" }, { en: "anchor", ja: "錨" }, { en: "ant", ja: "アリ" },
+            { en: "barrel", ja: "樽" }, { en: "bass", ja: "バス(魚)" }, { en: "beaver", ja: "ビーバー" },
+            { en: "binocular", ja: "双眼鏡" }, { en: "bonsai", ja: "盆栽" }, { en: "brain", ja: "脳" },
+            { en: "brontosaurus", ja: "ブロントサウルス" }, { en: "buddha", ja: "仏像" }, { en: "butterfly", ja: "蝶" },
+            { en: "camera", ja: "カメラ" }, { en: "cannon", ja: "大砲" }, { en: "car_side", ja: "車(横)" },
+            { en: "ceiling_fan", ja: "シーリングファン" }, { en: "cellphone", ja: "携帯電話" }, { en: "chair", ja: "椅子" },
+            { en: "chandelier", ja: "シャンデリア" }, { en: "cougar_body", ja: "クーガー(体)" }, { en: "cougar_face", ja: "クーガー(顔)" },
+            { en: "crab", ja: "カニ" }, { en: "crayfish", ja: "ザリガニ" }, { en: "crocodile", ja: "ワニ" },
+            { en: "cup", ja: "カップ" }, { en: "dalmatian", ja: "ダルメシアン" }, { en: "dollar_bill", ja: "ドル札" },
+            { en: "dolphin", ja: "イルカ" }, { en: "dragonfly", ja: "トンボ" }, { en: "electric_guitar", ja: "エレキギター" },
+            { en: "elephant", ja: "象" }, { en: "emu", ja: "エミュー" }, { en: "euphonium", ja: "ユーフォニアム" },
+            { en: "ewer", ja: "水差し" }, { en: "ferry", ja: "フェリー" }, { en: "flamingo", ja: "フラミンゴ" },
+            { en: "flamingo_head", ja: "フラミンゴ(頭)" }, { en: "garfield", ja: "ガーフィールド" }, { en: "gerenuk", ja: "ゲレヌク" },
+            { en: "gramophone", ja: "蓄音機" }, { en: "grand_piano", ja: "グランドピアノ" }, { en: "hawksbill", ja: "タイマイ(亀)" },
+            { en: "headphone", ja: "ヘッドフォン" }, { en: "hedgehog", ja: "ハリネズミ" }, { en: "helicopter", ja: "ヘリコプター" },
+            { en: "ibis", ja: "トキ" }, { en: "inline_skate", ja: "インラインスケート" }, { en: "joshua_tree", ja: "ジョシュアツリー" },
+            { en: "kangaroo", ja: "カンガルー" }, { en: "ketch", ja: "ケッチ(帆船)" }, { en: "lamp", ja: "ランプ" },
+            { en: "laptop", ja: "ノートPC" }, { en: "llama", ja: "ラマ" }, { en: "lobster", ja: "ロブスター" },
+            { en: "lotus", ja: "蓮" }, { en: "mandolin", ja: "マンドリン" }, { en: "mayfly", ja: "カゲロウ" },
+            { en: "menorah", ja: "メノラー" }, { en: "metronome", ja: "メトロノーム" }, { en: "minaret", ja: "ミナレット" },
+            { en: "nautilus", ja: "オウムガイ" }, { en: "octopus", ja: "タコ" }, { en: "okapi", ja: "オカピ" },
+            { en: "pagoda", ja: "塔" }, { en: "panda", ja: "パンダ" }, { en: "pigeon", ja: "鳩" },
+            { en: "pizza", ja: "ピザ" }, { en: "platypus", ja: "カモノハシ" }, { en: "pyramid", ja: "ピラミッド" },
+            { en: "revolver", ja: "リボルバー" }, { en: "rhino", ja: "サイ" }, { en: "rooster", ja: "雄鶏" },
+            { en: "saxophone", ja: "サックス" }, { en: "schooner", ja: "スクーナー(船)" }, { en: "scissors", ja: "ハサミ" },
+            { en: "scorpion", ja: "サソリ" }, { en: "sea_horse", ja: "タツノオトシゴ" }, { en: "snoopy", ja: "スヌーピー" },
+            { en: "soccer_ball", ja: "サッカーボール" }, { en: "stapler", ja: "ホッチキス" }, { en: "starfish", ja: "ヒトデ" },
+            { en: "stegosaurus", ja: "ステゴサウルス" }, { en: "stop_sign", ja: "一時停止標識" }, { en: "strawberry", ja: "イチゴ" },
+            { en: "sunflower", ja: "ヒマワリ" }, { en: "tick", ja: "ダニ" }, { en: "trilobite", ja: "三葉虫" },
+            { en: "umbrella", ja: "傘" }, { en: "watch", ja: "腕時計" }, { en: "water_lilly", ja: "スイレン" },
+            { en: "wheelchair", ja: "車椅子" }, { en: "wild_cat", ja: "ヤマネコ" }, { en: "windsor_chair", ja: "ウィンザーチェア" },
+            { en: "wrench", ja: "レンチ" }, { en: "yin_yang", ja: "陰陽" }
+        ];
+
+        let BENCHMARK_DATA = [];
+        let session = null;
+        let currentModelName = "";
+        let customImages = [];
+        let isRunning = false;
+        let useMockInference = false;
+
+        // 初期化
+        window.onload = async () => {
+            try {
+                const response = await fetch('samples.json');
+                const samples = await response.json();
+                // samples.jsonの形式に合わせて変換 (filename, label)
+                BENCHMARK_DATA = samples.map((s, i) => ({
+                    id: i,
+                    path: `samples/${s.filename}`,
+                    groundTruth: s.label
+                }));
+            } catch (e) {
+                console.warn("samples.json not found, using mock data", e);
+                // フォールバック（モックデータ）
+                BENCHMARK_DATA = Array.from({ length: 200 }, (_, i) => {
+                    const labelIdx = Math.floor(Math.random() * LABELS.length);
+                    return {
+                        id: i,
+                        path: `./samples/img_${String(i).padStart(3, '0')}.jpg`,
+                        groundTruth: labelIdx
+                    };
+                });
+            }
+            renderDatasetGrid();
+        };
+
+        function renderDatasetGrid() {
+            const grid = document.getElementById('dataset-grid');
+            grid.innerHTML = '';
+            BENCHMARK_DATA.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'dataset-item';
+                const labelName = LABELS[item.groundTruth] ? LABELS[item.groundTruth].ja : "不明";
+                const imgSrc = item.path;
+                div.innerHTML = `
+            <img src="${imgSrc}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Img'">
+            <div class="dataset-label">${labelName}</div>
+        `;
+                div.onclick = () => openModal(imgSrc);
+                grid.appendChild(div);
+            });
+        }
+
+        function openModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('image-modal').classList.add('active');
+        }
+        function closeModal() {
+            document.getElementById('image-modal').classList.remove('active');
+        }
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById('view-bench').classList.add('hidden');
+            document.getElementById('view-dataset').classList.add('hidden');
+            document.getElementById('view-custom').classList.add('hidden');
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
+        }
+
+        async function loadModel() {
+            const statusEl = document.getElementById('model-status');
+            const pathInput = document.getElementById('model-path');
+            const btn = document.getElementById('load-btn');
+            currentModelName = pathInput.value.split('/').pop() || pathInput.value;
+
+            btn.disabled = true;
+            statusEl.innerText = "読み込み中...";
+            statusEl.className = "text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-bold";
+
+            try {
+                // バックグラウンドでコンパイル
+                session = await ort.InferenceSession.create(pathInput.value, {
+                    executionProviders: ['wasm', 'webgl'],
+                    graphOptimizationLevel: 'basic'
+                });
+                statusEl.innerText = "準備完了 (ONNX)";
+                statusEl.className = "text-xs px-2 py-1 rounded bg-green-100 text-green-800 font-bold";
+                useMockInference = false;
+                updateModelDisplay(false);
+            } catch (e) {
+                console.warn("Model load failed", e);
+                statusEl.innerText = "デモモード (Mock)";
+                statusEl.className = "text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold";
+                alert("モデルが見つかりません。デモモード（ランダム結果）で動作します。");
+                useMockInference = true;
+                updateModelDisplay(true);
+            } finally {
+                document.getElementById('btn-run-bench').disabled = false;
+                document.getElementById('btn-run-custom').disabled = false;
+                btn.disabled = false;
+            }
+        }
+
+        function updateModelDisplay(isMock) {
+            document.querySelectorAll('.model-name-display').forEach(el => {
+                el.innerText = `Model: ${isMock ? '(Mock) ' : ''}${currentModelName}`;
+            });
+        }
+
+        async function imageToTensor(imageElement) {
+            const width = 224; const height = 224;
+            const canvas = document.createElement('canvas');
+            canvas.width = width; canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(imageElement, 0, 0, width, height);
+            const imageData = ctx.getImageData(0, 0, width, height).data;
+            const float32Data = new Float32Array(1 * 3 * width * height);
+            const mean = [0.485, 0.456, 0.406]; const std = [0.229, 0.224, 0.225];
+            for (let i = 0; i < width * height; i++) {
+                float32Data[i] = (imageData[i * 4] / 255.0 - mean[0]) / std[0];
+                float32Data[i + width * height] = (imageData[i * 4 + 1] / 255.0 - mean[1]) / std[1];
+                float32Data[i + 2 * width * height] = (imageData[i * 4 + 2] / 255.0 - mean[2]) / std[2];
+            }
+            return new ort.Tensor('float32', float32Data, [1, 3, width, height]);
+        }
+
+        function softmax(arr) {
+            const max = Math.max(...arr);
+            const exps = arr.map(x => Math.exp(x - max));
+            const sum = exps.reduce((a, b) => a + b, 0);
+            return exps.map(x => x / sum);
+        }
+
+        async function runBenchmark() {
+            if (isRunning) return;
+            isRunning = true;
+            const tbody = document.getElementById('bench-table-body');
+            tbody.innerHTML = "";
+
+            // Progress Bar Setup
+            const progressBar = document.getElementById('bench-progress-bar');
+            const progressContainer = document.getElementById('bench-progress-container');
+            progressContainer.style.display = 'block';
+            progressBar.style.width = '0%';
+
+            let correct = 0; let totalTime = 0;
+            const total = BENCHMARK_DATA.length;
+
+            document.getElementById('bench-acc').innerText = "計測中...";
+            document.getElementById('bench-time').innerText = "計測中...";
+
+            for (let i = 0; i < total; i++) {
+                const item = BENCHMARK_DATA[i];
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.src = item.path;
+
+                await new Promise(r => { img.onload = r; img.onerror = r; });
+
+                const start = performance.now();
+                let predIdx, conf;
+
+                if (useMockInference) {
+                    await new Promise(r => setTimeout(r, 20));
+                    predIdx = Math.floor(Math.random() * LABELS.length);
+                    if (Math.random() > 0.4) predIdx = item.groundTruth; // Correctish
+                    conf = 0.85 + Math.random() * 0.14;
+                } else {
+                    try {
+                        const tensor = await imageToTensor(img);
+                        const results = await session.run({ [session.inputNames[0]]: tensor });
+                        const probs = softmax(Array.from(results[session.outputNames[0]].data));
+                        predIdx = probs.indexOf(Math.max(...probs));
+                        conf = probs[predIdx];
+                    } catch (e) { console.error(e); predIdx = -1; conf = 0; }
+                }
+
+                totalTime += (performance.now() - start);
+                const isCorrect = (predIdx === item.groundTruth);
+                if (isCorrect) correct++;
+
+                // Render Row
+                const gtLabel = LABELS[item.groundTruth]?.ja || "不明";
+                const predLabel = LABELS[predIdx]?.ja || "エラー";
+                const statusIcon = isCorrect ? '✅' : '❌';
+                const rowClass = isCorrect ? '' : 'bg-red-50';
+
+                // 正解/不正解を視覚的に強調した行を作成
+                const row = `
+            <tr class="${rowClass}">
+                <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
+                <td><img src="${img.src}" class="thumb" onclick="openModal('${img.src}')"></td>
+                <td>
+                    <div class="flex items-center gap-2">
+                        <div>
                             </thead>
                             <tbody id="benchmark-detail-table-body"></tbody>
                         </table>
