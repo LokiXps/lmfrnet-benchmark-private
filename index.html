@@ -546,110 +546,38 @@
 
     <script>
         const DEFAULT_MODEL_PATH = "./models_caltech101/lmfrnet.onnx";
-        // ラベル定義 (Caltech-101)
-        const LABELS = [
-            { en: "Faces", ja: "顔" },
-            { en: "Faces_easy", ja: "顔(Easy)" },
-            { en: "Leopards", ja: "ヒョウ" },
-            { en: "Motorbikes", ja: "バイク" },
-            { en: "accordion", ja: "アコーディオン" },
-            { en: "airplanes", ja: "飛行機" },
-            { en: "anchor", ja: "錨" },
-            { en: "ant", ja: "アリ" },
-            { en: "barrel", ja: "樽" },
-            { en: "bass", ja: "バス(魚)" },
-            { en: "beaver", ja: "ビーバー" },
-            { en: "binocular", ja: "双眼鏡" },
-            { en: "bonsai", ja: "盆栽" },
-            { en: "brain", ja: "脳" },
-            { en: "brontosaurus", ja: "ブロントサウルス" },
-            { en: "buddha", ja: "仏像" },
-            { en: "butterfly", ja: "蝶" },
-            { en: "camera", ja: "カメラ" },
-            { en: "cannon", ja: "大砲" },
-            { en: "car_side", ja: "車(横)" },
-            { en: "ceiling_fan", ja: "シーリングファン" },
-            { en: "cellphone", ja: "携帯電話" },
-            { en: "chair", ja: "椅子" },
-            { en: "chandelier", ja: "シャンデリア" },
-            { en: "cougar_body", ja: "クーガー(体)" },
-            { en: "cougar_face", ja: "クーガー(顔)" },
-            { en: "crab", ja: "カニ" },
-            { en: "crayfish", ja: "ザリガニ" },
-            { en: "crocodile", ja: "ワニ" },
-            { en: "crocodile_head", ja: "ワニ(頭)" },
-            { en: "cup", ja: "カップ" },
-            { en: "dalmatian", ja: "ダルメシアン" },
-            { en: "dollar_bill", ja: "ドル札" },
-            { en: "dolphin", ja: "イルカ" },
-            { en: "dragonfly", ja: "トンボ" },
-            { en: "electric_guitar", ja: "エレキギター" },
-            { en: "elephant", ja: "象" },
-            { en: "emu", ja: "エミュー" },
-            { en: "euphonium", ja: "ユーフォニアム" },
-            { en: "ewer", ja: "水差し" },
-            { en: "ferry", ja: "フェリー" },
-            { en: "flamingo", ja: "フラミンゴ" },
-            { en: "flamingo_head", ja: "フラミンゴ(頭)" },
-            { en: "garfield", ja: "ガーフィールド" },
-            { en: "gerenuk", ja: "ゲレヌク" },
-            { en: "gramophone", ja: "蓄音機" },
-            { en: "grand_piano", ja: "グランドピアノ" },
-            { en: "hawksbill", ja: "タイマイ(亀)" },
-            { en: "headphone", ja: "ヘッドフォン" },
-            { en: "hedgehog", ja: "ハリネズミ" },
-            { en: "helicopter", ja: "ヘリコプター" },
-            { en: "ibis", ja: "トキ" },
-            { en: "inline_skate", ja: "インラインスケート" },
-            { en: "joshua_tree", ja: "ジョシュアツリー" },
-            { en: "kangaroo", ja: "カンガルー" },
-            { en: "ketch", ja: "ケッチ(帆船)" },
-            { en: "lamp", ja: "ランプ" },
-            { en: "laptop", ja: "ノートPC" },
-            { en: "llama", ja: "ラマ" },
-            { en: "lobster", ja: "ロブスター" },
-            { en: "lotus", ja: "蓮" },
-            { en: "mandolin", ja: "マンドリン" },
-            { en: "mayfly", ja: "カゲロウ" },
-            { en: "menorah", ja: "メノラー" },
-            { en: "metronome", ja: "メトロノーム" },
-            { en: "minaret", ja: "ミナレット" },
-            { en: "nautilus", ja: "オウムガイ" },
-            { en: "octopus", ja: "タコ" },
-            { en: "okapi", ja: "オカピ" },
-            { en: "pagoda", ja: "塔" },
-            { en: "panda", ja: "パンダ" },
-            { en: "pigeon", ja: "鳩" },
-            { en: "pizza", ja: "ピザ" },
-            { en: "platypus", ja: "カモノハシ" },
-            { en: "pyramid", ja: "ピラミッド" },
-            { en: "revolver", ja: "リボルバー" },
-            { en: "rhino", ja: "サイ" },
-            { en: "rooster", ja: "雄鶏" },
-            { en: "saxophone", ja: "サックス" },
-            { en: "schooner", ja: "スクーナー(船)" },
-            { en: "scissors", ja: "ハサミ" },
-            { en: "scorpion", ja: "サソリ" },
-            { en: "sea_horse", ja: "タツノオトシゴ" },
-            { en: "snoopy", ja: "スヌーピー" },
-            { en: "soccer_ball", ja: "サッカーボール" },
-            { en: "stapler", ja: "ホッチキス" },
-            { en: "starfish", ja: "ヒトデ" },
-            { en: "stegosaurus", ja: "ステゴサウルス" },
-            { en: "stop_sign", ja: "一時停止標識" },
-            { en: "strawberry", ja: "イチゴ" },
-            { en: "sunflower", ja: "ヒマワリ" },
-            { en: "tick", ja: "ダニ" },
-            { en: "trilobite", ja: "三葉虫" },
-            { en: "umbrella", ja: "傘" },
-            { en: "watch", ja: "腕時計" },
-            { en: "water_lilly", ja: "スイレン" },
-            { en: "wheelchair", ja: "車椅子" },
-            { en: "wild_cat", ja: "ヤマネコ" },
-            { en: "windsor_chair", ja: "ウィンザーチェア" },
-            { en: "wrench", ja: "レンチ" },
-            { en: "yin_yang", ja: "陰陽" }
+        const MODEL_OPTIONS = [
+            { value: "./models_caltech101/lmfrnet.onnx", label: "LMFRNet (Default)" },
+            { value: "./models_caltech101/lmfrnet_hires.onnx", label: "LMFRNet (Hi-Res)" },
+            { value: "./models_caltech101/resnet18.onnx", label: "resnet18" },
+            { value: "./models_caltech101/mobilenetv3_large.onnx", label: "mobilenetv3_large" }
         ];
+        // labels.jsonを基準にする（英語配列）。和訳は必要なものだけマップで補完。
+        let LABELS = [];
+        const LABEL_TRANSLATIONS = {
+            "Faces": "顔", "Faces_easy": "顔(Easy)", "Leopards": "ヒョウ", "Motorbikes": "バイク", "accordion": "アコーディオン",
+            "airplanes": "飛行機", "anchor": "錨", "ant": "アリ", "barrel": "樽", "bass": "バス(魚)", "beaver": "ビーバー",
+            "binocular": "双眼鏡", "bonsai": "盆栽", "brain": "脳", "brontosaurus": "ブロントサウルス", "buddha": "仏像",
+            "butterfly": "蝶", "camera": "カメラ", "cannon": "大砲", "car_side": "車(横)", "ceiling_fan": "シーリングファン",
+            "cellphone": "携帯電話", "chair": "椅子", "chandelier": "シャンデリア", "cougar_body": "クーガー(体)", "cougar_face": "クーガー(顔)",
+            "crab": "カニ", "crayfish": "ザリガニ", "crocodile": "ワニ", "crocodile_head": "ワニ(頭)", "cup": "カップ",
+            "dalmatian": "ダルメシアン", "dollar_bill": "ドル札", "dolphin": "イルカ", "dragonfly": "トンボ",
+            "electric_guitar": "エレキギター", "elephant": "象", "emu": "エミュー", "euphonium": "ユーフォニアム", "ewer": "水差し",
+            "ferry": "フェリー", "flamingo": "フラミンゴ", "flamingo_head": "フラミンゴ(頭)", "garfield": "ガーフィールド",
+            "gerenuk": "ゲレヌク", "gramophone": "蓄音機", "grand_piano": "グランドピアノ", "hawksbill": "タイマイ(亀)",
+            "headphone": "ヘッドフォン", "hedgehog": "ハリネズミ", "helicopter": "ヘリコプター", "ibis": "トキ",
+            "inline_skate": "インラインスケート", "joshua_tree": "ジョシュアツリー", "kangaroo": "カンガルー",
+            "ketch": "ケッチ(帆船)", "lamp": "ランプ", "laptop": "ノートPC", "llama": "ラマ", "lobster": "ロブスター",
+            "lotus": "蓮", "mandolin": "マンドリン", "mayfly": "カゲロウ", "menorah": "メノラー", "metronome": "メトロノーム",
+            "minaret": "ミナレット", "nautilus": "オウムガイ", "octopus": "タコ", "okapi": "オカピ", "pagoda": "塔",
+            "panda": "パンダ", "pigeon": "鳩", "pizza": "ピザ", "platypus": "カモノハシ", "pyramid": "ピラミッド",
+            "revolver": "リボルバー", "rhino": "サイ", "rooster": "雄鶏", "saxophone": "サックス", "schooner": "スクーナー(船)",
+            "scissors": "ハサミ", "scorpion": "サソリ", "sea_horse": "タツノオトシゴ", "snoopy": "スヌーピー",
+            "soccer_ball": "サッカーボール", "stapler": "ホッチキス", "starfish": "ヒトデ", "stegosaurus": "ステゴサウルス",
+            "stop_sign": "一時停止標識", "strawberry": "イチゴ", "sunflower": "ヒマワリ", "tick": "ダニ", "trilobite": "三葉虫",
+            "umbrella": "傘", "watch": "腕時計", "water_lilly": "スイレン", "wheelchair": "車椅子", "wild_cat": "ヤマネコ",
+            "windsor_chair": "ウィンザーチェア", "wrench": "レンチ", "yin_yang": "陰陽"
+        };
 
         let BENCHMARK_DATA = [];
         let customImages = [];
@@ -666,6 +594,7 @@
         const benchTableBody = document.getElementById('bench-table-body');
         const benchAccEl = document.getElementById('bench-acc');
         const benchTimeEl = document.getElementById('bench-time');
+        const benchConfEl = document.getElementById('bench-conf');
         const benchProgEl = document.getElementById('bench-prog');
         const benchProgressBar = document.getElementById('bench-progress-bar');
         const benchProgressContainer = document.getElementById('bench-progress-container');
@@ -682,10 +611,10 @@
             ort.env.wasm.simd = true;
 
             initWorker();
+            await loadLabels();
             await loadSamples();
             renderDatasetGrid();
-
-            // Auto load default model
+            populateModelSelect();
             await loadModel(true);
         };
 
@@ -696,6 +625,16 @@
             } catch (e) {
                 console.warn('Worker Init Failed:', e);
                 workerReady = false;
+            }
+        }
+
+        async function loadLabels() {
+            try {
+                const response = await fetch('labels.json');
+                LABELS = await response.json();
+            } catch (e) {
+                console.error("labels.json not found", e);
+                LABELS = [];
             }
         }
 
@@ -726,7 +665,7 @@
             BENCHMARK_DATA.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'dataset-item';
-                const labelName = LABELS[item.groundTruth] ? LABELS[item.groundTruth].ja : "不明";
+                const labelName = getLabelName(item.groundTruth);
                 const imgSrc = item.path;
                 div.innerHTML = `
                     <img src="${imgSrc}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Img'">
@@ -739,11 +678,9 @@
 
         // --- Model Loading ---
         async function loadModel(auto = false) {
-            const btn = document.getElementById('load-btn');
             const modelPath = modelPathInput.value || DEFAULT_MODEL_PATH;
-            currentModelName = modelPath.split('/').pop() || modelPath;
+            currentModelName = modelPath.split('/').pop().replace('.onnx', '') || modelPath;
 
-            btn.disabled = true;
             btnRunBench.disabled = true;
             btnRunCustom.disabled = true;
             setModelStatus("読み込み中...", "pending");
@@ -780,7 +717,6 @@
             } finally {
                 btnRunBench.disabled = false;
                 btnRunCustom.disabled = customImages.length === 0;
-                btn.disabled = false;
             }
         }
 
@@ -820,12 +756,15 @@
             benchTableBody.innerHTML = "";
             benchAccEl.innerText = "計測中...";
             benchTimeEl.innerText = "計測中...";
+            benchConfEl.innerText = "計測中...";
             benchProgEl.innerText = `0/${BENCHMARK_DATA.length}`;
             benchProgressContainer.style.display = 'block';
             benchProgressBar.style.width = '0%';
 
             let correct = 0;
             let totalTime = 0;
+            let confSum = 0;
+            let confCount = 0; // 正解・不正解問わず全件の平均にする
 
             for (let i = 0; i < BENCHMARK_DATA.length; i++) {
                 const item = BENCHMARK_DATA[i];
@@ -834,12 +773,16 @@
                     const { predIdx, conf, inferTime } = await inferWithFallback(imageData, item.groundTruth);
 
                     totalTime += inferTime;
+                    if (conf > 0) {
+                        confSum += conf;
+                        confCount += 1;
+                    }
                     const isCorrect = (predIdx === item.groundTruth);
                     if (isCorrect) correct++;
 
                     // Render Row
-                    const gtLabel = LABELS[item.groundTruth]?.ja || "不明";
-                    const predLabel = LABELS[predIdx]?.ja || "エラー";
+                    const gtLabel = getLabelName(item.groundTruth);
+                    const predLabel = getLabelName(predIdx, "エラー");
                     const statusIcon = isCorrect ? '✅' : '❌';
                     const rowClass = isCorrect ? '' : 'bg-red-50';
 
@@ -863,6 +806,7 @@
                     benchProgEl.innerText = `${count}/${BENCHMARK_DATA.length}`;
                     benchAccEl.innerText = `${((correct / count) * 100).toFixed(1)}%`;
                     benchTimeEl.innerText = `${(totalTime / count).toFixed(0)}ms`;
+                    if (confCount > 0) benchConfEl.innerText = `${((confSum / confCount) * 100).toFixed(1)}%`;
                     benchProgressBar.style.width = `${Math.round((count / BENCHMARK_DATA.length) * 100)}%`;
 
                 } catch (e) {
@@ -904,8 +848,8 @@
                         if (predIdx === item.labelIndex) correct++;
                     }
 
-                    const targetLabel = (item.labelIndex !== -1) ? LABELS[item.labelIndex].ja : "未指定";
-                    const predLabel = LABELS[predIdx]?.ja || "エラー";
+                const targetLabel = (item.labelIndex !== -1) ? getLabelName(item.labelIndex) : "未指定";
+                const predLabel = getLabelName(predIdx, "エラー");
                     const isCorrect = (item.labelIndex !== -1 && predIdx === item.labelIndex);
                     const statusIcon = isCorrect ? '✅' : (item.labelIndex !== -1 ? '❌' : '－');
 
@@ -1043,6 +987,12 @@
             return exps.map(x => x / sum);
         }
 
+        function getLabelName(index, fallback = "不明") {
+            const en = Array.isArray(LABELS) ? LABELS[index] : null;
+            if (!en && fallback) return fallback;
+            return LABEL_TRANSLATIONS[en] || en || fallback;
+        }
+
         function handleCustomFiles(input) {
             // Cleanup old URLs
             customImages.forEach(item => {
@@ -1073,7 +1023,7 @@
 
                 const select = document.createElement('select');
                 let optionsHtml = `<option value="-1">正解ラベルを選択...</option>`;
-                LABELS.forEach((l, i) => { optionsHtml += `<option value="${i}">[${i}] ${l.ja} (${l.en})</option>`; });
+                LABELS.forEach((_, i) => { optionsHtml += `<option value="${i}">[${i}] ${getLabelName(i)}</option>`; });
                 select.innerHTML = optionsHtml;
                 select.onchange = (e) => {
                     const idx = customImages.findIndex(x => x.div === div);
@@ -1134,3 +1084,17 @@
 
 </html>
 ```
+        function populateModelSelect() {
+            const sel = document.getElementById('model-path');
+            sel.innerHTML = "";
+            MODEL_OPTIONS.forEach(opt => {
+                const o = document.createElement('option');
+                o.value = opt.value;
+                o.textContent = opt.label;
+                sel.appendChild(o);
+            });
+            sel.value = DEFAULT_MODEL_PATH;
+            sel.addEventListener('change', async () => {
+                await loadModel(false);
+            });
+        }
