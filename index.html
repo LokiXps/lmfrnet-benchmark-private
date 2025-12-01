@@ -543,15 +543,15 @@
     </div>
 
     <script>
-        const DEFAULT_MODEL_PATH = "./models_caltech101/lmfrnet.onnx";
         const MODEL_OPTIONS = [
-            { value: "./models_caltech101/lmfrnet.onnx", label: "LMFRNet (Default)" },
-            { value: "./models_caltech101/lmfrnet_hires.onnx", label: "LMFRNet (Hi-Res)" },
-            { value: "./models_caltech101/resnet18.onnx", label: "resnet18" },
-            { value: "./models_caltech101/mobilenetv3_large.onnx", label: "mobilenetv3_large" }
+            { name: "LMFRNet (Default)", path: "./models_caltech101/lmfrnet.onnx" },
+            { name: "LMFRNet Hires", path: "./models_caltech101/lmfrnet_hires.onnx" },
+            { name: "MobileNetV3 Large", path: "./models_caltech101/mobilenetv3_large.onnx" },
+            { name: "ResNet18", path: "./models_caltech101/resnet18.onnx" }
         ];
-        // labels.jsonを基準にする（英語配列）。和訳は必要なものだけマップで補完。
+
         let LABELS = [];
+        // 翻訳マップ (labels.jsonの英語名 -> 日本語)
         const LABEL_TRANSLATIONS = {
             "Faces": "顔", "Faces_easy": "顔(Easy)", "Leopards": "ヒョウ", "Motorbikes": "バイク", "accordion": "アコーディオン",
             "airplanes": "飛行機", "anchor": "錨", "ant": "アリ", "barrel": "樽", "bass": "バス(魚)", "beaver": "ビーバー",
@@ -588,14 +588,13 @@
         let useMockInference = false;
 
         const statusEl = document.getElementById('model-status');
-        const modelPathInput = document.getElementById('model-path');
+        const modelSelect = document.getElementById('model-select');
         const benchTableBody = document.getElementById('bench-table-body');
         const benchAccEl = document.getElementById('bench-acc');
         const benchTimeEl = document.getElementById('bench-time');
         const benchConfEl = document.getElementById('bench-conf');
         const benchProgEl = document.getElementById('bench-prog');
         const benchProgressBar = document.getElementById('bench-progress-bar');
-
         const benchProgressContainer = document.getElementById('bench-progress-container');
         const datasetGrid = document.getElementById('dataset-grid');
         const btnRunBench = document.getElementById('btn-run-bench');
@@ -612,6 +611,7 @@
 
             initModelSelect();
             initWorker();
+            await loadLabels();
             await loadSamples();
             renderDatasetGrid();
 
@@ -631,6 +631,16 @@
                 loadModel(e.target.value);
             });
         }
+
+        async function loadLabels() {
+            try {
+                const res = await fetch('labels.json');
+                LABELS = await res.json();
+            } catch (e) {
+                console.error("Failed to load labels.json", e);
+            }
+        }
+
 
         function initWorker() {
             worker = new Worker('worker.js');
@@ -991,8 +1001,9 @@
         }
 
         function getLabelName(index) {
-            if (LABELS[index]) {
-                return LABELS[index].ja; // Use Japanese label
+            const en = LABELS[index];
+            if (en) {
+                return LABEL_TRANSLATIONS[en] || en;
             }
             return `Unknown (${index})`;
         }
