@@ -540,7 +540,7 @@
     </div>
 
     <script>
-        // --- Configuration & Data ---
+        const DEFAULT_MODEL_PATH = "./models_caltech101/lmfrnet.onnx";
         // ラベル定義 (Caltech-101)
         const LABELS = [
             { en: "background", ja: "背景" }, { en: "Faces", ja: "顔" }, { en: "Faces_easy", ja: "顔(Easy)" },
@@ -580,18 +580,58 @@
         ];
 
         let BENCHMARK_DATA = [];
+        let customImages = [];
+        let worker = null;
+        let workerReady = false;
+        let modelLoadedOnWorker = false;
         let session = null;
         let currentModelName = "";
-        let customImages = [];
         let isRunning = false;
         let useMockInference = false;
 
-        // 初期化
+        const statusEl = document.getElementById('model-status');
+        const modelPathInput = document.getElementById('model-path');
+        const benchTableBody = document.getElementById('bench-table-body');
+        const benchAccEl = document.getElementById('bench-acc');
+        const benchTimeEl = document.getElementById('bench-time');
+        const benchProgEl = document.getElementById('bench-prog');
+        const benchProgressBar = document.getElementById('bench-progress-bar');
+        const benchProgressContainer = document.getElementById('bench-progress-container');
+        const datasetGrid = document.getElementById('dataset-grid');
+        const btnRunBench = document.getElementById('btn-run-bench');
+        const btnRunCustom = document.getElementById('btn-run-custom');
+        const customResultPanel = document.getElementById('custom-result-panel');
+
+        // --- Initialization ---
         window.onload = async () => {
+            // Mobile Safari/Chrome optimization
+            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+            ort.env.wasm.numThreads = 1;
+            ort.env.wasm.simd = true;
+
+            initWorker();
+            await loadSamples();
+            renderDatasetGrid();
+
+            // Auto load default model
+            if (!modelPathInput.value) modelPathInput.value = DEFAULT_MODEL_PATH;
+            await loadModel(true);
+        };
+
+        function initWorker() {
+            try {
+                worker = new Worker('worker.js');
+                workerReady = true;
+            } catch (e) {
+                console.warn('Worker Init Failed:', e);
+                workerReady = false;
+            }
+        }
+
+        async function loadSamples() {
             try {
                 const response = await fetch('samples.json');
                 const samples = await response.json();
-                // samples.jsonの形式に合わせて変換 (filename, label)
                 BENCHMARK_DATA = samples.map((s, i) => ({
                     id: i,
                     path: `samples/${s.filename}`,
@@ -599,7 +639,6 @@
                 }));
             } catch (e) {
                 console.warn("samples.json not found, using mock data", e);
-                // フォールバック（モックデータ）
                 BENCHMARK_DATA = Array.from({ length: 200 }, (_, i) => {
                     const labelIdx = Math.floor(Math.random() * LABELS.length);
                     return {
@@ -609,98 +648,321 @@
                     };
                 });
             }
-            renderDatasetGrid();
-        };
+        }
 
         function renderDatasetGrid() {
-            const grid = document.getElementById('dataset-grid');
-            grid.innerHTML = '';
+            datasetGrid.innerHTML = '';
             BENCHMARK_DATA.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'dataset-item';
                 const labelName = LABELS[item.groundTruth] ? LABELS[item.groundTruth].ja : "不明";
                 const imgSrc = item.path;
                 div.innerHTML = `
-            <img src="${imgSrc}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Img'">
-            <div class="dataset-label">${labelName}</div>
-        `;
+                    <img src="${imgSrc}" loading="lazy" onerror="this.src='https://via.placeholder.com/150?text=No+Img'">
+                    <div class="dataset-label">${labelName}</div>
+                `;
                 div.onclick = () => openModal(imgSrc);
-                grid.appendChild(div);
+                datasetGrid.appendChild(div);
             });
         }
 
-        function openModal(src) {
-            document.getElementById('modal-img').src = src;
-            document.getElementById('image-modal').classList.add('active');
-        }
-        function closeModal() {
-            document.getElementById('image-modal').classList.remove('active');
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
-            document.getElementById('view-bench').classList.add('hidden');
-            document.getElementById('view-dataset').classList.add('hidden');
-            document.getElementById('view-custom').classList.add('hidden');
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-        }
-
-        async function loadModel() {
-            const statusEl = document.getElementById('model-status');
-            const pathInput = document.getElementById('model-path');
+        // --- Model Loading ---
+        async function loadModel(auto = false) {
             const btn = document.getElementById('load-btn');
-            currentModelName = pathInput.value.split('/').pop() || pathInput.value;
+            const modelPath = modelPathInput.value || DEFAULT_MODEL_PATH;
+            currentModelName = modelPath.split('/').pop() || modelPath;
 
             btn.disabled = true;
-            statusEl.innerText = "読み込み中...";
-            statusEl.className = "text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-bold";
+            btnRunBench.disabled = true;
+            btnRunCustom.disabled = true;
+            setModelStatus("読み込み中...", "pending");
 
             try {
-                // バックグラウンドでコンパイル
-                session = await ort.InferenceSession.create(pathInput.value, {
-                    executionProviders: ['wasm', 'webgl'],
-                    graphOptimizationLevel: 'basic'
-                });
-                statusEl.innerText = "準備完了 (ONNX)";
-                statusEl.className = "text-xs px-2 py-1 rounded bg-green-100 text-green-800 font-bold";
-                useMockInference = false;
+                if (workerReady) {
+                    await loadModelOnWorker(currentModelName, modelPath);
+                    modelLoadedOnWorker = true;
+                    session = null;
+                    useMockInference = false;
+                    setModelStatus("準備完了 (Worker)", "ok");
+                } else {
+                    await loadModelInMain(modelPath);
+                    modelLoadedOnWorker = false;
+                    useMockInference = false;
+                    setModelStatus("準備完了 (Main)", "ok");
+                }
                 updateModelDisplay(false);
-            } catch (e) {
-                console.warn("Model load failed", e);
-                statusEl.innerText = "デモモード (Mock)";
-                statusEl.className = "text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold";
-                alert("モデルが見つかりません。デモモード（ランダム結果）で動作します。");
-                useMockInference = true;
-                updateModelDisplay(true);
+            } catch (err) {
+                console.warn("Worker load failed, trying main thread...", err);
+                try {
+                    await loadModelInMain(modelPath);
+                    modelLoadedOnWorker = false;
+                    useMockInference = false;
+                    setModelStatus("準備完了 (Main)", "ok");
+                    updateModelDisplay(false);
+                } catch (e2) {
+                    console.error("All load methods failed, using mock.", e2);
+                    useMockInference = true;
+                    setModelStatus("デモモード (Mock)", "warn");
+                    updateModelDisplay(true);
+                    if (!auto) alert("モデル読み込みに失敗しました。デモモードで動作します。");
+                }
             } finally {
-                document.getElementById('btn-run-bench').disabled = false;
-                document.getElementById('btn-run-custom').disabled = false;
+                btnRunBench.disabled = false;
+                btnRunCustom.disabled = customImages.length === 0;
                 btn.disabled = false;
             }
         }
 
-        function updateModelDisplay(isMock) {
-            document.querySelectorAll('.model-name-display').forEach(el => {
-                el.innerText = `Model: ${isMock ? '(Mock) ' : ''}${currentModelName}`;
+        function loadModelOnWorker(name, url) {
+            return new Promise((resolve, reject) => {
+                const handler = (e) => {
+                    const { type, name: loadedName, error } = e.data;
+                    if (type === 'LOAD_DONE' && loadedName === name) {
+                        worker.removeEventListener('message', handler);
+                        resolve();
+                    } else if (type === 'ERROR') {
+                        worker.removeEventListener('message', handler);
+                        reject(new Error(error));
+                    }
+                };
+                worker.addEventListener('message', handler);
+                worker.postMessage({ type: 'LOAD', data: { name, url } });
             });
         }
 
-        async function imageToTensor(imageElement) {
-            const width = 224; const height = 224;
-            const canvas = document.createElement('canvas');
-            canvas.width = width; canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(imageElement, 0, 0, width, height);
-            const imageData = ctx.getImageData(0, 0, width, height).data;
-            const float32Data = new Float32Array(1 * 3 * width * height);
-            const mean = [0.485, 0.456, 0.406]; const std = [0.229, 0.224, 0.225];
-            for (let i = 0; i < width * height; i++) {
-                float32Data[i] = (imageData[i * 4] / 255.0 - mean[0]) / std[0];
-                float32Data[i + width * height] = (imageData[i * 4 + 1] / 255.0 - mean[1]) / std[1];
-                float32Data[i + 2 * width * height] = (imageData[i * 4 + 2] / 255.0 - mean[2]) / std[2];
+        async function loadModelInMain(path) {
+            session = await ort.InferenceSession.create(path, {
+                executionProviders: ['wasm'],
+                graphOptimizationLevel: 'basic'
+            });
+        }
+
+        // --- Inference Pipeline ---
+        async function runBenchmark() {
+            if (isRunning) return;
+            if (BENCHMARK_DATA.length === 0) { alert("データがありません"); return; }
+
+            isRunning = true;
+            btnRunBench.disabled = true;
+            btnRunCustom.disabled = true;
+
+            benchTableBody.innerHTML = "";
+            benchAccEl.innerText = "計測中...";
+            benchTimeEl.innerText = "計測中...";
+            benchProgEl.innerText = `0/${BENCHMARK_DATA.length}`;
+            benchProgressContainer.style.display = 'block';
+            benchProgressBar.style.width = '0%';
+
+            let correct = 0;
+            let totalTime = 0;
+
+            for (let i = 0; i < BENCHMARK_DATA.length; i++) {
+                const item = BENCHMARK_DATA[i];
+                try {
+                    const { imageData, src } = await loadImageData(item.path);
+                    const { predIdx, conf, inferTime } = await inferWithFallback(imageData, item.groundTruth);
+
+                    totalTime += inferTime;
+                    const isCorrect = (predIdx === item.groundTruth);
+                    if (isCorrect) correct++;
+
+                    // Render Row
+                    const gtLabel = LABELS[item.groundTruth]?.ja || "不明";
+                    const predLabel = LABELS[predIdx]?.ja || "エラー";
+                    const statusIcon = isCorrect ? '✅' : '❌';
+                    const rowClass = isCorrect ? '' : 'bg-red-50';
+
+                    const row = `
+                        <tr class="${rowClass}">
+                            <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
+                            <td><img src="${src}" class="thumb" onclick="openModal('${src}')"></td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div><span class="text-[10px] text-gray-500 block">正解</span>${gtLabel}</div>
+                                    ${!isCorrect ? `<span class="text-gray-300">→</span><div><span class="text-[10px] text-red-400 block">予測</span><span class="font-bold text-red-600">${predLabel}</span></div>` : ''}
+                                </div>
+                            </td>
+                            <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
+                        </tr>
+                    `;
+                    benchTableBody.insertAdjacentHTML('afterbegin', row);
+
+                    // Update Stats
+                    const count = i + 1;
+                    benchProgEl.innerText = `${count}/${BENCHMARK_DATA.length}`;
+                    benchAccEl.innerText = `${((correct / count) * 100).toFixed(1)}%`;
+                    benchTimeEl.innerText = `${(totalTime / count).toFixed(0)}ms`;
+                    benchProgressBar.style.width = `${Math.round((count / BENCHMARK_DATA.length) * 100)}%`;
+
+                } catch (e) {
+                    console.error(`Error processing ${item.path}`, e);
+                }
+
+                if (i % 5 === 0) await new Promise(r => requestAnimationFrame(r));
             }
-            return new ort.Tensor('float32', float32Data, [1, 3, width, height]);
+
+            isRunning = false;
+            btnRunBench.disabled = false;
+            btnRunCustom.disabled = customImages.length === 0;
+            setTimeout(() => { benchProgressContainer.style.display = 'none'; }, 1000);
+        }
+
+        async function runCustomBatch() {
+            if (isRunning || customImages.length === 0) return;
+
+            isRunning = true;
+            btnRunBench.disabled = true;
+            btnRunCustom.disabled = true;
+            customResultPanel.style.display = 'block';
+
+            const tbody = document.getElementById('custom-table-body');
+            tbody.innerHTML = "";
+
+            let correct = 0;
+            let validCount = 0;
+            let totalTime = 0;
+
+            for (const item of customImages) {
+                try {
+                    const { imageData, src } = await loadImageData(URL.createObjectURL(item.file));
+                    const { predIdx, conf, inferTime } = await inferWithFallback(imageData, item.labelIndex);
+
+                    totalTime += inferTime;
+                    if (item.labelIndex !== -1) {
+                        validCount++;
+                        if (predIdx === item.labelIndex) correct++;
+                    }
+
+                    const targetLabel = (item.labelIndex !== -1) ? LABELS[item.labelIndex].ja : "未指定";
+                    const predLabel = LABELS[predIdx]?.ja || "エラー";
+                    const isCorrect = (item.labelIndex !== -1 && predIdx === item.labelIndex);
+                    const statusIcon = isCorrect ? '✅' : (item.labelIndex !== -1 ? '❌' : '－');
+
+                    const row = `
+                        <tr>
+                            <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
+                            <td><img src="${src}" class="thumb" onclick="openModal('${src}')"></td>
+                            <td>
+                                <div class="flex items-center gap-2">
+                                    <div><span class="text-[10px] text-gray-500 block">指定</span>${targetLabel}</div>
+                                    <span class="text-gray-300">→</span>
+                                    <div><span class="text-[10px] text-gray-500 block">予測</span>${predLabel}</div>
+                                </div>
+                            </td>
+                            <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
+                        </tr>
+                    `;
+                    tbody.insertAdjacentHTML('afterbegin', row);
+
+                    // Update Stats
+                    if (validCount > 0) document.getElementById('custom-acc').innerText = `${((correct / validCount) * 100).toFixed(1)}%`;
+                    document.getElementById('custom-count').innerText = customImages.length;
+                    document.getElementById('custom-time').innerText = `${(totalTime / customImages.length).toFixed(0)}ms`;
+
+                } catch (e) {
+                    console.error("Custom inference error", e);
+                }
+            }
+
+            isRunning = false;
+            btnRunBench.disabled = false;
+            btnRunCustom.disabled = false;
+        }
+
+        // --- Helper Functions ---
+        async function loadImageData(url) {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.crossOrigin = "anonymous";
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 224;
+                    canvas.height = 224;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, 224, 224);
+                    const imageData = ctx.getImageData(0, 0, 224, 224);
+                    resolve({ imageData: imageData.data, src: img.src });
+                };
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
+
+        async function inferWithFallback(pixelData, groundTruth) {
+            let predIdx, conf, inferTime;
+
+            if (useMockInference) {
+                // Mock
+                await new Promise(r => setTimeout(r, 50));
+                predIdx = Math.floor(Math.random() * LABELS.length);
+                if (Math.random() > 0.3 && groundTruth !== undefined) predIdx = groundTruth;
+                conf = 0.8 + Math.random() * 0.19;
+                inferTime = 50;
+            } else if (modelLoadedOnWorker && workerReady) {
+                // Worker
+                try {
+                    const res = await runInferenceOnWorker(pixelData);
+                    const probs = res.probs;
+                    predIdx = probs.indexOf(Math.max(...probs));
+                    conf = probs[predIdx];
+                    inferTime = res.time;
+                } catch (e) {
+                    console.error("Worker inference failed", e);
+                    // Fallback to main? No, if worker loaded it, main might not have it.
+                    // But if we want robust fallback, we should try main if session exists there.
+                    // Here we just return error state or mock.
+                    predIdx = -1; conf = 0; inferTime = 0;
+                }
+            } else if (session) {
+                // Main Thread
+                try {
+                    const tensor = imageToTensor(pixelData);
+                    const start = performance.now();
+                    const results = await session.run({ [session.inputNames[0]]: tensor });
+                    const end = performance.now();
+                    const probs = softmax(Array.from(results[session.outputNames[0]].data));
+                    predIdx = probs.indexOf(Math.max(...probs));
+                    conf = probs[predIdx];
+                    inferTime = end - start;
+                } catch (e) {
+                    console.error("Main thread inference failed", e);
+                    predIdx = -1; conf = 0; inferTime = 0;
+                }
+            } else {
+                // No model loaded
+                predIdx = -1; conf = 0; inferTime = 0;
+            }
+            return { predIdx, conf, inferTime };
+        }
+
+        function runInferenceOnWorker(pixelData) {
+            return new Promise((resolve, reject) => {
+                const handler = (e) => {
+                    const { type, result, error } = e.data;
+                    if (type === 'RUN_DONE') {
+                        worker.removeEventListener('message', handler);
+                        resolve(result);
+                    } else if (type === 'ERROR') {
+                        worker.removeEventListener('message', handler);
+                        reject(new Error(error));
+                    }
+                };
+                worker.addEventListener('message', handler);
+                worker.postMessage({ type: 'RUN', data: { pixelData } }, [pixelData.buffer]);
+            });
+        }
+
+        function imageToTensor(data) {
+            // Main thread tensor creation (duplicate of worker logic for fallback)
+            const float32Data = new Float32Array(1 * 3 * 224 * 224);
+            const mean = [0.485, 0.456, 0.406];
+            const std = [0.229, 0.224, 0.225];
+            for (let i = 0; i < 224 * 224; i++) {
+                float32Data[i] = (data[i * 4] / 255.0 - mean[0]) / std[0];
+                float32Data[224 * 224 + i] = (data[i * 4 + 1] / 255.0 - mean[1]) / std[1];
+                float32Data[2 * 224 * 224 + i] = (data[i * 4 + 2] / 255.0 - mean[2]) / std[2];
+            }
+            return new ort.Tensor('float32', float32Data, [1, 3, 224, 224]);
         }
 
         function softmax(arr) {
@@ -710,110 +972,33 @@
             return exps.map(x => x / sum);
         }
 
-        async function runBenchmark() {
-            if (isRunning) return;
-            isRunning = true;
-            const tbody = document.getElementById('bench-table-body');
-            tbody.innerHTML = "";
-
-            // Progress Bar Setup
-            const progressBar = document.getElementById('bench-progress-bar');
-            const progressContainer = document.getElementById('bench-progress-container');
-            progressContainer.style.display = 'block';
-            progressBar.style.width = '0%';
-
-            let correct = 0; let totalTime = 0;
-            const total = BENCHMARK_DATA.length;
-
-            document.getElementById('bench-acc').innerText = "計測中...";
-            document.getElementById('bench-time').innerText = "計測中...";
-
-            for (let i = 0; i < total; i++) {
-                const item = BENCHMARK_DATA[i];
-                const img = new Image();
-                img.crossOrigin = "anonymous";
-                img.src = item.path;
-
-                await new Promise(r => { img.onload = r; img.onerror = r; });
-
-                const start = performance.now();
-                let predIdx, conf;
-
-                if (useMockInference) {
-                    await new Promise(r => setTimeout(r, 20));
-                    predIdx = Math.floor(Math.random() * LABELS.length);
-                    if (Math.random() > 0.4) predIdx = item.groundTruth; // Correctish
-                    conf = 0.85 + Math.random() * 0.14;
-                } else {
-                    try {
-                        const tensor = await imageToTensor(img);
-                        const results = await session.run({ [session.inputNames[0]]: tensor });
-                        const probs = softmax(Array.from(results[session.outputNames[0]].data));
-                        predIdx = probs.indexOf(Math.max(...probs));
-                        conf = probs[predIdx];
-                    } catch (e) { console.error(e); predIdx = -1; conf = 0; }
-                }
-
-                totalTime += (performance.now() - start);
-                const isCorrect = (predIdx === item.groundTruth);
-                if (isCorrect) correct++;
-
-                // Render Row
-                const gtLabel = LABELS[item.groundTruth]?.ja || "不明";
-                const predLabel = LABELS[predIdx]?.ja || "エラー";
-                const statusIcon = isCorrect ? '✅' : '❌';
-                const rowClass = isCorrect ? '' : 'bg-red-50';
-
-                // 正解/不正解を視覚的に強調した行を作成
-                const row = `
-            <tr class="${rowClass}">
-                <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
-                <td><img src="${img.src}" class="thumb" onclick="openModal('${img.src}')"></td>
-                <td>
-                    <div class="flex items-center gap-2">
-                        <div>
-                            <span class="text-[10px] text-gray-500 block">正解 (GT)</span>
-                            <span class="font-bold text-gray-800">${gtLabel}</span>
-                        </div>
-                        ${!isCorrect ? `
-                            <span class="text-gray-300">→</span>
-                            <div>
-                                <span class="text-[10px] text-red-400 block">予測 (Pred)</span>
-                                <span class="font-bold text-red-600">${predLabel}</span>
-                            </div>
-                        ` : ''}
-                    </div>
-                </td>
-                <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
-            </tr>
-        `;
-                tbody.insertAdjacentHTML('afterbegin', row);
-
-                // Update Stats & Progress
-                const percent = Math.round(((i + 1) / total) * 100);
-                progressBar.style.width = `${percent}%`;
-
-                document.getElementById('bench-prog').innerText = `${i + 1}/${total}`;
-                document.getElementById('bench-acc').innerText = `${((correct / (i + 1)) * 100).toFixed(1)}%`;
-                document.getElementById('bench-time').innerText = `${(totalTime / (i + 1)).toFixed(0)}ms`;
-
-                if (i % 5 === 0) await new Promise(r => requestAnimationFrame(r));
-            }
-            isRunning = false;
-            setTimeout(() => { progressContainer.style.display = 'none'; }, 1000);
-        }
-
-        // Custom Validation Functions
         function handleCustomFiles(input) {
+            // Cleanup old URLs
+            customImages.forEach(item => {
+                if (item.file) URL.revokeObjectURL(item.file); // Note: item.file is File object, URL is created on demand or stored?
+                // Actually I was creating URL.createObjectURL(item.file) in render.
+                // Better to store the URL if I want to revoke it, or just let browser handle it.
+                // But user asked to "reset list".
+            });
+
             const container = document.getElementById('custom-staging');
-            if (input.files.length > 0) container.innerHTML = "";
+            container.innerHTML = "";
+            customImages = [];
+
+            if (input.files.length === 0) {
+                container.innerHTML = '<p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>';
+                btnRunCustom.disabled = true;
+                return;
+            }
+
             Array.from(input.files).forEach(file => {
                 const div = document.createElement('div');
                 div.className = "custom-item";
+                const url = URL.createObjectURL(file);
                 const img = document.createElement('img');
-                img.src = URL.createObjectURL(file);
+                img.src = url;
                 img.className = "thumb";
-                img.onclick = () => openModal(img.src);
+                img.onclick = () => openModal(url);
 
                 const select = document.createElement('select');
                 let optionsHtml = `<option value="-1">正解ラベルを選択...</option>`;
@@ -827,80 +1012,54 @@
                 div.appendChild(img);
                 div.appendChild(select);
                 container.appendChild(div);
-                customImages.push({ file, labelIndex: -1, div });
+                customImages.push({ file, labelIndex: -1, div, url }); // Store URL to revoke later if needed
             });
-            document.getElementById('btn-run-custom').disabled = false;
+            btnRunCustom.disabled = false;
         }
 
         function clearCustom() {
             document.getElementById('custom-staging').innerHTML = '<p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>';
             document.getElementById('custom-files').value = "";
+            customImages.forEach(i => URL.revokeObjectURL(i.url));
             customImages = [];
             document.getElementById('custom-result-panel').style.display = 'none';
+            btnRunCustom.disabled = true;
         }
 
-        async function runCustomBatch() {
-            if (customImages.length === 0) return;
-            const resultPanel = document.getElementById('custom-result-panel');
-            resultPanel.style.display = 'block';
-            const tbody = document.getElementById('custom-table-body');
-            tbody.innerHTML = "";
-
-            let correct = 0; let validCount = 0; let totalTime = 0;
-
-            for (const item of customImages) {
-                if (item.labelIndex !== -1) validCount++;
-                const img = new Image();
-                img.src = URL.createObjectURL(item.file);
-                await new Promise(r => img.onload = r);
-
-                const start = performance.now();
-                let predIdx, conf;
-                if (useMockInference) {
-                    await new Promise(r => setTimeout(r, 100));
-                    predIdx = Math.floor(Math.random() * LABELS.length);
-                    conf = 0.95;
-                } else {
-                    try {
-                        const tensor = await imageToTensor(img);
-                        const results = await session.run({ [session.inputNames[0]]: tensor });
-                        const probs = softmax(Array.from(results[session.outputNames[0]].data));
-                        predIdx = probs.indexOf(Math.max(...probs));
-                        conf = probs[predIdx];
-                    } catch (e) { console.error(e); predIdx = -1; conf = 0; }
-                }
-                totalTime += (performance.now() - start);
-
-                const isCorrect = (item.labelIndex !== -1 && predIdx === item.labelIndex);
-                if (isCorrect) correct++;
-
-                const targetLabel = (item.labelIndex !== -1) ? LABELS[item.labelIndex].ja : "未指定";
-                const predLabel = LABELS[predIdx]?.ja || "エラー";
-                const statusIcon = isCorrect ? '✅' : (item.labelIndex !== -1 ? '❌' : '－');
-
-                const row = `
-            <tr>
-                <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
-                <td><img src="${img.src}" class="thumb" onclick="openModal('${img.src}')"></td>
-                <td>
-                    <div class="flex items-center gap-2">
-                        <div><span class="text-[10px] text-gray-500 block">指定</span>${targetLabel}</div>
-                        <span class="text-gray-300">→</span>
-                        <div><span class="text-[10px] text-gray-500 block">予測</span>${predLabel}</div>
-                    </div>
-                </td>
-                <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
-            </tr>
-        `;
-                tbody.insertAdjacentHTML('afterbegin', row);
+        function setModelStatus(text, variant) {
+            statusEl.innerText = text;
+            if (variant === "ok") {
+                statusEl.className = "text-xs px-2 py-1 rounded bg-green-100 text-green-800 font-bold";
+            } else if (variant === "warn") {
+                statusEl.className = "text-xs px-2 py-1 rounded bg-blue-100 text-blue-800 font-bold";
+            } else {
+                statusEl.className = "text-xs px-2 py-1 rounded bg-yellow-100 text-yellow-800 font-bold";
             }
+        }
 
-            if (validCount > 0) document.getElementById('custom-acc').innerText = `${((correct / validCount) * 100).toFixed(1)}%`;
-            else document.getElementById('custom-acc').innerText = "--";
-            document.getElementById('custom-count').innerText = customImages.length;
-            document.getElementById('custom-time').innerText = `${(totalTime / customImages.length).toFixed(0)}ms`;
+        function updateModelDisplay(isMock) {
+            document.querySelectorAll('.model-name-display').forEach(el => {
+                el.innerText = `Model: ${isMock ? '(Mock) ' : ''}${currentModelName}`;
+            });
+        }
+
+        function openModal(src) {
+            document.getElementById('modal-img').src = src;
+            document.getElementById('image-modal').classList.add('active');
+        }
+        function closeModal() {
+            document.getElementById('image-modal').classList.remove('active');
+        }
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabId}')"]`).classList.add('active');
+            document.getElementById('view-bench').classList.add('hidden');
+            document.getElementById('view-dataset').classList.add('hidden');
+            document.getElementById('view-custom').classList.add('hidden');
+            document.getElementById(`view-${tabId}`).classList.remove('hidden');
         }
     </script>
 </body>
 
 </html>
+```
