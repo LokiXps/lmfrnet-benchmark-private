@@ -772,60 +772,135 @@
                 <td>
                     <div class="flex items-center gap-2">
                         <div>
-                            </thead>
-                            <tbody id="benchmark-detail-table-body"></tbody>
-                        </table>
+                            <span class="text-[10px] text-gray-500 block">正解 (GT)</span>
+                            <span class="font-bold text-gray-800">${gtLabel}</span>
+                        </div>
+                        ${!isCorrect ? `
+                            <span class="text-gray-300">→</span>
+                            <div>
+                                <span class="text-[10px] text-red-400 block">予測 (Pred)</span>
+                                <span class="font-bold text-red-600">${predLabel}</span>
+                            </div>
+                        ` : ''}
                     </div>
-                </div>
+                </td>
+                <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
+            </tr>
+        `;
+                tbody.insertAdjacentHTML('afterbegin', row);
 
-                <div id="batch-result" class="result-block hidden">
-                    <h3>ローカル画像の予測一覧</h3>
-                    <div class="table-container">
-                        <table class="detail-table">
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>画像</th>
-                                    <th>予測</th>
-                                    <th>確信度</th>
-                                    <th>推論時間</th>
-                                </tr>
-                            </thead>
-                            <tbody id="batch-result-body"></tbody>
-                        </table>
+                // Update Stats & Progress
+                const percent = Math.round(((i + 1) / total) * 100);
+                progressBar.style.width = `${percent}%`;
+
+                document.getElementById('bench-prog').innerText = `${i + 1}/${total}`;
+                document.getElementById('bench-acc').innerText = `${((correct / (i + 1)) * 100).toFixed(1)}%`;
+                document.getElementById('bench-time').innerText = `${(totalTime / (i + 1)).toFixed(0)}ms`;
+
+                if (i % 5 === 0) await new Promise(r => requestAnimationFrame(r));
+            }
+            isRunning = false;
+            setTimeout(() => { progressContainer.style.display = 'none'; }, 1000);
+        }
+
+        // Custom Validation Functions
+        function handleCustomFiles(input) {
+            const container = document.getElementById('custom-staging');
+            if (input.files.length > 0) container.innerHTML = "";
+            Array.from(input.files).forEach(file => {
+                const div = document.createElement('div');
+                div.className = "custom-item";
+                const img = document.createElement('img');
+                img.src = URL.createObjectURL(file);
+                img.className = "thumb";
+                img.onclick = () => openModal(img.src);
+
+                const select = document.createElement('select');
+                let optionsHtml = `<option value="-1">正解ラベルを選択...</option>`;
+                LABELS.forEach((l, i) => { optionsHtml += `<option value="${i}">[${i}] ${l.ja} (${l.en})</option>`; });
+                select.innerHTML = optionsHtml;
+                select.onchange = (e) => {
+                    const idx = customImages.findIndex(x => x.div === div);
+                    if (idx >= 0) customImages[idx].labelIndex = parseInt(e.target.value);
+                };
+
+                div.appendChild(img);
+                div.appendChild(select);
+                container.appendChild(div);
+                customImages.push({ file, labelIndex: -1, div });
+            });
+            document.getElementById('btn-run-custom').disabled = false;
+        }
+
+        function clearCustom() {
+            document.getElementById('custom-staging').innerHTML = '<p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>';
+            document.getElementById('custom-files').value = "";
+            customImages = [];
+            document.getElementById('custom-result-panel').style.display = 'none';
+        }
+
+        async function runCustomBatch() {
+            if (customImages.length === 0) return;
+            const resultPanel = document.getElementById('custom-result-panel');
+            resultPanel.style.display = 'block';
+            const tbody = document.getElementById('custom-table-body');
+            tbody.innerHTML = "";
+
+            let correct = 0; let validCount = 0; let totalTime = 0;
+
+            for (const item of customImages) {
+                if (item.labelIndex !== -1) validCount++;
+                const img = new Image();
+                img.src = URL.createObjectURL(item.file);
+                await new Promise(r => img.onload = r);
+
+                const start = performance.now();
+                let predIdx, conf;
+                if (useMockInference) {
+                    await new Promise(r => setTimeout(r, 100));
+                    predIdx = Math.floor(Math.random() * LABELS.length);
+                    conf = 0.95;
+                } else {
+                    try {
+                        const tensor = await imageToTensor(img);
+                        const results = await session.run({ [session.inputNames[0]]: tensor });
+                        const probs = softmax(Array.from(results[session.outputNames[0]].data));
+                        predIdx = probs.indexOf(Math.max(...probs));
+                        conf = probs[predIdx];
+                    } catch (e) { console.error(e); predIdx = -1; conf = 0; }
+                }
+                totalTime += (performance.now() - start);
+
+                const isCorrect = (item.labelIndex !== -1 && predIdx === item.labelIndex);
+                if (isCorrect) correct++;
+
+                const targetLabel = (item.labelIndex !== -1) ? LABELS[item.labelIndex].ja : "未指定";
+                const predLabel = LABELS[predIdx]?.ja || "エラー";
+                const statusIcon = isCorrect ? '✅' : (item.labelIndex !== -1 ? '❌' : '－');
+
+                const row = `
+            <tr>
+                <td class="col-res"><span class="status-icon">${statusIcon}</span></td>
+                <td><img src="${img.src}" class="thumb" onclick="openModal('${img.src}')"></td>
+                <td>
+                    <div class="flex items-center gap-2">
+                        <div><span class="text-[10px] text-gray-500 block">指定</span>${targetLabel}</div>
+                        <span class="text-gray-300">→</span>
+                        <div><span class="text-[10px] text-gray-500 block">予測</span>${predLabel}</div>
                     </div>
-                </div>
-            </section>
+                </td>
+                <td class="col-conf">${(conf * 100).toFixed(1)}%</td>
+            </tr>
+        `;
+                tbody.insertAdjacentHTML('afterbegin', row);
+            }
 
-            <section class="card">
-                <div class="section-head">
-                    <div>
-                        <p class="eyebrow">データセットの透明性</p>
-                        <h2>ベンチマークに使う200枚の中身</h2>
-                        <p class="muted">`samples.json` の先頭を表示。全件は「評価画像を一覧で確認」から。</p>
-                    </div>
-                    <a class="btn text sm" href="gallery.html" target="_blank" rel="noreferrer">全件を見る</a>
-                </div>
-                <div id="sample-preview-grid" class="sample-grid"></div>
-            </section>
-        </main>
-
-        <section id="status-panel" class="status-panel hidden">
-            <div class="spinner"></div>
-            <div>
-                <p id="status-text">準備中...</p>
-                <div id="progress-container" class="hidden">
-                    <div id="progress-bar"></div>
-                    <span id="progress-label">0 / 200</span>
-                </div>
-            </div>
-        </section>
-
-        <footer>
-            <p>ブラウザで動く LMFRNet オフライン推論ツール。オープンモデルのため手元で安心して試せます。</p>
-        </footer>
-    </div>
-    <script src="script.js"></script>
+            if (validCount > 0) document.getElementById('custom-acc').innerText = `${((correct / validCount) * 100).toFixed(1)}%`;
+            else document.getElementById('custom-acc').innerText = "--";
+            document.getElementById('custom-count').innerText = customImages.length;
+            document.getElementById('custom-time').innerText = `${(totalTime / customImages.length).toFixed(0)}ms`;
+        }
+    </script>
 </body>
 
 </html>
