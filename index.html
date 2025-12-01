@@ -663,9 +663,14 @@
                 canvas.height = target;
                 const ctx = canvas.getContext('2d');
 
-                const scale = Math.max(target / img.width, target / img.height);
+                // Python: transforms.Resize(256) -> transforms.CenterCrop(224)
+                // JS: Resize short edge to 256, then center crop 224
+                const resizeShortEdge = 256;
+                const scale = Math.max(resizeShortEdge / img.width, resizeShortEdge / img.height);
                 const scaledWidth = img.width * scale;
                 const scaledHeight = img.height * scale;
+
+                // Center crop calculation
                 const dx = (target - scaledWidth) / 2;
                 const dy = (target - scaledHeight) / 2;
 
