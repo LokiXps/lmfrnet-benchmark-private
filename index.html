@@ -1,82 +1,229 @@
 <!DOCTYPE html>
 <html lang="ja">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMFRNet Web Benchmark</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <title>LMFRNet オフライン推論ラボ</title>
+    <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="style.css">
-    <!-- ONNX Runtime Web -->
     <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js"></script>
 </head>
-<body>
-    <div class="background-glow"></div>
-    
-    <main class="container">
-        <header>
-            <h1>LMFRNet <span class="accent">Benchmark</span></h1>
-            <p class="subtitle">Browser-based Inference Performance Test</p>
-        </header>
 
-        <div class="glass-panel control-panel">
-            <div class="input-group">
-                <label for="model-select">Select Model</label>
-                <div class="select-wrapper">
+<body>
+    <div class="page-shell">
+        <header class="hero card">
+            <div class="hero-copy">
+                <p class="eyebrow">On-device · Web · Offline</p>
+                <h1>LMFRNet オフライン推論ラボ</h1>
+                <p class="lede">
+                    200枚のCaltech-101ベンチマークも、自前データの一括推論も、すべてブラウザ内で完結。
+                    オフラインでスマホ（iPhone含む）から試せるように作り直しました。
+                </p>
+                <div class="hero-actions">
+                    <button class="btn primary" id="hero-single-btn">1枚ですぐ試す</button>
+                    <button class="btn ghost" id="hero-benchmark-btn">200枚ベンチを走らせる</button>
+                    <a class="btn text" href="gallery.html" target="_blank" rel="noreferrer">評価画像を一覧で確認</a>
+                </div>
+                <div class="chip-row">
+                    <span class="chip" id="offline-chip">オフライン準備: 未実施</span>
+                    <span class="chip subtle" id="device-info"></span>
+                </div>
+            </div>
+            <div class="hero-panel">
+                <div class="field">
+                    <label for="model-select">モデル選択</label>
                     <select id="model-select">
-                        <option value="lmfrnet">LMFRNet (Proposed)</option>
-                        <option value="mobilenetv3_large">MobileNetV3 Large</option>
+                        <option value="lmfrnet">LMFRNet (標準)</option>
+                        <option value="lmfrnet_hires">LMFRNet (高解像度版)</option>
                         <option value="resnet18">ResNet-18</option>
+                        <option value="mobilenetv3_large">MobileNetV3 Large</option>
                     </select>
                 </div>
+                <div id="model-status-container" class="status-stack"></div>
+                <button class="btn secondary block" id="offline-prep-btn">端末に必要ファイルをキャッシュ</button>
+                <p class="tiny muted" id="offline-status">モデル・200枚の画像・ラベルを端末に保存してオフライン動作を保証します。</p>
             </div>
+        </header>
 
-            <div class="input-group">
-                <label>Upload Image</label>
-                <div class="file-drop-area" id="drop-area">
-                    <input type="file" id="file-input" accept="image/*" hidden>
-                    <div class="drop-message">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                            <polyline points="17 8 12 3 7 8"></polyline>
-                            <line x1="12" y1="3" x2="12" y2="15"></line>
-                        </svg>
-                        <span>Click or Drop Image</span>
+        <main class="grid">
+            <section class="card">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">単発テスト</p>
+                        <h2>1枚の画像で即確認</h2>
+                        <p class="muted">ドラッグ&ドロップまたは選択。推論は端末内だけで完結します。</p>
+                    </div>
+                    <button class="btn ghost sm" id="clear-single-btn">リセット</button>
+                </div>
+
+                <div id="single-dropzone" class="dropzone">
+                    <input type="file" id="single-file-input" accept="image/*" hidden>
+                    <p class="drop-title">ここに画像をドロップ</p>
+                    <p class="muted">PNG/JPGなど。プレビュー後に推論を実行できます。</p>
+                    <div class="drop-actions">
+                        <button class="btn tertiary" id="choose-single-btn">ファイルを選択</button>
+                        <button class="btn primary" id="run-single-btn" disabled>推論を実行</button>
                     </div>
                 </div>
-            </div>
 
-            <button id="run-btn" class="primary-btn" disabled>
-                <span class="btn-text">Run Inference</span>
-                <div class="loading-spinner hidden"></div>
-            </button>
-        </div>
+                <div id="single-result" class="preview-panel hidden">
+                    <div class="preview">
+                        <canvas id="input-canvas"></canvas>
+                    </div>
+                    <div class="metrics">
+                        <div class="metric-item">
+                            <span class="label">予測クラス</span>
+                            <span class="value" id="pred-label">---</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="label">確信度</span>
+                            <span class="value" id="pred-conf">---%</span>
+                        </div>
+                        <div class="metric-item">
+                            <span class="label">推論時間</span>
+                            <span class="value" id="infer-time">--- ms</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-        <div class="glass-panel result-panel hidden" id="result-panel">
-            <div class="image-preview-container">
-                <canvas id="input-canvas"></canvas>
-            </div>
-            
-            <div class="metrics-container">
-                <div class="metric-card">
-                    <span class="metric-label">Prediction</span>
-                    <span class="metric-value accent" id="pred-label">---</span>
-                    <span class="metric-sub" id="pred-conf">---%</span>
+            <section class="card">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">バッチ / ベンチマーク</p>
+                        <h2>標準200枚かローカル画像をまとめて推論</h2>
+                        <p class="muted">標準セットは Caltech-101 の 200 枚（samples.json 参照）。ローカル画像はラベルなしで予測一覧を出します。</p>
+                    </div>
+                    <a class="btn text sm" href="gallery.html" target="_blank" rel="noreferrer">200枚の中身を確認</a>
                 </div>
-                <div class="metric-card">
-                    <span class="metric-label">Inference Time</span>
-                    <span class="metric-value" id="infer-time">---</span>
-                    <span class="metric-sub">ms</span>
-                </div>
-                <div class="metric-card">
-                    <span class="metric-label">Device</span>
-                    <span class="metric-value small" id="device-info">---</span>
-                </div>
-            </div>
-        </div>
-    </main>
 
+                <div class="benchmark-grid">
+                    <div class="block">
+                        <div class="block-head">
+                            <h3>標準ベンチマーク</h3>
+                            <p class="muted" id="standard-summary">200枚 / Caltech-101</p>
+                        </div>
+                        <button class="btn primary block" id="run-benchmark-btn">200枚ベンチを実行</button>
+                        <p class="tiny muted">精度・平均時間・各画像の判定をテーブルで表示します。</p>
+                    </div>
+
+                    <div class="block">
+                        <div class="block-head">
+                            <h3>ローカル画像一括推論</h3>
+                            <p class="muted">ラベル不要。結果は一覧で保存なし。</p>
+                        </div>
+                        <div id="batch-dropzone" class="dropzone compact">
+                            <input type="file" id="batch-file-input" accept="image/*" multiple hidden>
+                            <p class="drop-title">複数画像をドロップ</p>
+                            <p class="muted">iPhoneでもファイルを選択すればOK。オフライン可。</p>
+                            <div class="drop-actions">
+                                <button class="btn tertiary sm" id="choose-batch-btn">画像を選択</button>
+                            </div>
+                        </div>
+                        <p class="muted" id="batch-summary">0枚選択中</p>
+                        <button class="btn secondary block" id="run-batch-btn" disabled>ローカル画像を推論</button>
+                    </div>
+                </div>
+
+                <div class="custom-block">
+                    <div class="section-head slim">
+                        <div>
+                            <p class="eyebrow">任意</p>
+                            <h3>ラベル付きカスタム検証</h3>
+                            <p class="muted">自前データで精度を出したい場合はここに追加。1つのラベルを複数枚に割り当て可能。</p>
+                        </div>
+                    </div>
+                    <div class="custom-input-area">
+                        <input type="file" id="custom-file-input" accept="image/*">
+                        <select id="custom-label-select" disabled>
+                            <option value="">正解ラベルを選択...</option>
+                        </select>
+                        <button id="add-custom-btn" class="btn secondary" disabled>リストに追加</button>
+                    </div>
+                    <div id="custom-list" class="custom-list hidden"></div>
+                    <button id="run-custom-benchmark-btn" class="btn secondary hidden">ラベル付きセットを評価</button>
+                </div>
+            </section>
+
+            <section id="result-panel" class="card hidden">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">結果</p>
+                        <h2>推論のサマリー</h2>
+                    </div>
+                </div>
+
+                <div id="benchmark-result" class="result-block hidden">
+                    <h3>標準ベンチマーク</h3>
+                    <table class="result-table">
+                        <tbody id="benchmark-table-body"></tbody>
+                    </table>
+                    <div class="table-container">
+                        <table class="detail-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>画像</th>
+                                    <th>正解</th>
+                                    <th>予測</th>
+                                    <th>確信度</th>
+                                    <th>結果</th>
+                                </tr>
+                            </thead>
+                            <tbody id="benchmark-detail-table-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div id="batch-result" class="result-block hidden">
+                    <h3>ローカル画像の予測一覧</h3>
+                    <div class="table-container">
+                        <table class="detail-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>画像</th>
+                                    <th>予測</th>
+                                    <th>確信度</th>
+                                    <th>推論時間</th>
+                                </tr>
+                            </thead>
+                            <tbody id="batch-result-body"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="section-head">
+                    <div>
+                        <p class="eyebrow">データセットの透明性</p>
+                        <h2>ベンチマークに使う200枚の中身</h2>
+                        <p class="muted">`samples.json` の先頭を表示。全件は「評価画像を一覧で確認」から。</p>
+                    </div>
+                    <a class="btn text sm" href="gallery.html" target="_blank" rel="noreferrer">全件を見る</a>
+                </div>
+                <div id="sample-preview-grid" class="sample-grid"></div>
+            </section>
+        </main>
+
+        <section id="status-panel" class="status-panel hidden">
+            <div class="spinner"></div>
+            <div>
+                <p id="status-text">準備中...</p>
+                <div id="progress-container" class="hidden">
+                    <div id="progress-bar"></div>
+                    <span id="progress-label">0 / 200</span>
+                </div>
+            </div>
+        </section>
+
+        <footer>
+            <p>ブラウザで動く LMFRNet オフライン推論ツール。オープンモデルのため手元で安心して試せます。</p>
+        </footer>
+    </div>
     <script src="script.js"></script>
 </body>
+
 </html>

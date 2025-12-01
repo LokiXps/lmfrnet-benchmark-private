@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>評価用画像セット (200枚)</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+            background: #f0f2f5;
+            margin: 0;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .item {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        img {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            background: #eee;
+            border-radius: 4px;
+            margin-bottom: 8px;
+        }
+
+        .info {
+            text-align: left;
+        }
+
+        .category {
+            font-weight: bold;
+            font-size: 13px;
+            color: #333;
+            margin-bottom: 2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .filename {
+            font-size: 11px;
+            color: #888;
+        }
+
+        .label-id {
+            font-size: 10px;
+            color: #aaa;
+            float: right;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>評価用画像セット (200枚)</h1>
+    <p style="text-align: center; margin-bottom: 20px;">ランダムに抽出されたCaltech-101の画像です。</p>
+    <div id="gallery" class="gallery"></div>
+    <script>
+        fetch('samples.json')
+            .then(response => response.json())
+            .then(data => {
+                const gallery = document.getElementById('gallery');
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'item';
+                    div.innerHTML = `
+                        <img src="samples/${item.filename}" loading="lazy" alt="${item.category}">
+                        <div class="info">
+                            <span class="label-id">ID: ${item.label}</span>
+                            <div class="category" title="${item.category}">${item.category}</div>
+                            <div class="filename">${item.filename}</div>
+                        </div>
+                    `;
+                    gallery.appendChild(div);
+                });
+            })
+            .catch(err => {
+                document.body.innerHTML += '<p style="text-align:center; color:red;">データの読み込みに失敗しました。</p>';
+                console.error(err);
+            });
+    </script>
+</body>
+
+</html>
