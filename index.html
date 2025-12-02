@@ -555,17 +555,28 @@
         const customResultPanel = document.getElementById('custom-result-panel');
         const modelNameDisplays = document.querySelectorAll('.model-name-display');
 
+        // Global Error Handler for Mobile Debugging
+        window.onerror = function (msg, url, lineNo, columnNo, error) {
+            alert('Error: ' + msg + '\nURL: ' + url + '\nLine: ' + lineNo);
+            return false;
+        };
+
         // Init
         window.onload = async () => {
-            ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-            ort.env.wasm.numThreads = 1;
-            ort.env.wasm.simd = true;
+            try {
+                ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+                ort.env.wasm.numThreads = 1;
+                ort.env.wasm.simd = false; // Disable SIMD for better iPhone compatibility
+                ort.env.wasm.proxy = false;
 
-            initModelSelect();
-            await loadLabels();
-            await loadSamples();
-            renderDatasetGrid();
-            await loadModel(MODEL_OPTIONS[0].path);
+                initModelSelect();
+                await loadLabels();
+                await loadSamples();
+                renderDatasetGrid();
+                await loadModel(MODEL_OPTIONS[0].path);
+            } catch (e) {
+                alert("Init Error: " + e.message);
+            }
         };
 
         function initModelSelect() {
