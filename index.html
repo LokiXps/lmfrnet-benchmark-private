@@ -623,10 +623,16 @@
             try {
                 // Cache busting
                 const loadPath = `${path}?t=${Date.now()}`;
-                session = await ort.InferenceSession.create(loadPath, {
+
+                // Low memory options for mobile
+                const options = {
                     executionProviders: ['wasm'],
-                    graphOptimizationLevel: 'all'
-                });
+                    enableCpuMemArena: false,
+                    enableMemPattern: false,
+                    executionMode: 'sequential'
+                };
+
+                session = await ort.InferenceSession.create(loadPath, options);
                 statusEl.textContent = "準備完了";
                 statusEl.className = "text-xs px-2 py-1 rounded bg-green-200 text-green-800 font-bold";
                 enableRunButtons(true);
