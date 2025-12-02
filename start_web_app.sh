@@ -6,5 +6,5 @@ if which xdg-open > /dev/null; then
 elif which open > /dev/null; then
   open http://localhost:8080 &
 fi
-echo "Starting local server..."
-python3 -m http.server 8080
+echo "Starting local server with correct headers..."
+python3 server.py
