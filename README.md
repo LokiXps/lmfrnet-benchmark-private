@@ -11,28 +11,20 @@ git clone https://github.com/LokiXps/lmfrnet-benchmark-private.git
 cd lmfrnet-benchmark-private
 ```
 
-## 使い方 1: Webアプリ版 (GUI)
+## 使い方 (簡単)
 
-ブラウザ上でグラフィカルに操作したい場合です。
-セキュリティ制限（CORS）のため、HTMLを直接開くのではなく、簡易サーバー経由で開く必要があります。
+フォルダ内の起動用ファイルをダブルクリックするだけで実行できます。
 
-1. ローカルサーバーを起動します。
-   ```bash
-   python3 -m http.server 8080
-   ```
-3. ブラウザで以下のURLを開きます。
-   [http://localhost:8080](http://localhost:8080)
+### 1. Webアプリ版 (GUI)
+ブラウザでグラフィカルに操作します。
 
-## 使い方 2: Pythonスクリプト版 (CUI)
+- **Windows**: `start_web_app.bat` をダブルクリック
+- **Mac/Linux**: `start_web_app.sh` を実行
 
-コマンドラインで直接推論を実行したい場合です。
+自動的にサーバーが立ち上がり、ブラウザが開きます。
 
-1. 必要なライブラリをインストールします。
-   ```bash
-   pip install onnxruntime numpy pillow
-   ```
-2. スクリプトを実行します。
-   ```bash
-   # 精度検証
-   python3 scripts/verify_accuracy.py
-   ```
+### 2. Pythonスクリプト版 (CUI)
+コマンドラインで推論を実行します（事前に `pip install onnxruntime numpy pillow` が必要です）。
+
+- **Windows**: `run_benchmark.bat` をダブルクリック
+- **Mac/Linux**: `run_benchmark.sh` を実行
