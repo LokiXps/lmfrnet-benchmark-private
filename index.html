@@ -644,10 +644,18 @@
 
                 for (const url of assets) {
                     try {
-                        statusLabel.textContent = `ダウンロード中: ${url.split('/').pop()}`;
+                        const fileName = url.split('/').pop();
+                        statusLabel.textContent = `ダウンロード中: ${fileName}`;
+
                         const res = await fetch(url, { mode: 'cors', cache: 'reload' });
+
                         if (res.ok) {
-                            await cache.put(url, res);
+                            // If it's a WASM file from CDN, save it as a local path
+                            if (url.includes('ort-wasm')) {
+                                await cache.put(`./${fileName}`, res);
+                            } else {
+                                await cache.put(url, res);
+                            }
                         }
                     } catch (e) {
                         console.error('Failed to cache:', url, e);
@@ -685,7 +693,8 @@
                     document.getElementById('view-setup').classList.add('hidden');
                     document.getElementById('view-main').classList.remove('hidden');
 
-                    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+                    // Force use of local WASM files (downloaded during setup)
+                    ort.env.wasm.wasmPaths = './';
                     ort.env.wasm.numThreads = 1;
                     ort.env.wasm.simd = false;
                     ort.env.wasm.proxy = false;
