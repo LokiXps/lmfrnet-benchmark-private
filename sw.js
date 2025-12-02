@@ -1,12 +1,10 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v29';
+const CACHE_NAME = 'lmfrnet-benchmark-v30';
 const ASSETS = [
     './',
     './index.html',
-    './style.css',
     './manifest.json',
     './labels.json',
     './samples.json',
-    './worker.js',
     './icon-192.png',
     './icon-512.png',
     './models_caltech101/lmfrnet.onnx',
