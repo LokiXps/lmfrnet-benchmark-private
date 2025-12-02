@@ -16,11 +16,7 @@ cd lmfrnet-benchmark-private
 ブラウザ上でグラフィカルに操作したい場合です。
 セキュリティ制限（CORS）のため、HTMLを直接開くのではなく、簡易サーバー経由で開く必要があります。
 
-1. `public` フォルダに移動します。
-   ```bash
-   cd public
-   ```
-2. ローカルサーバーを起動します。
+1. ローカルサーバーを起動します。
    ```bash
    python3 -m http.server 8080
    ```
