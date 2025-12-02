@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v30';
+const CACHE_NAME = 'lmfrnet-benchmark-v31';
 const ASSETS = [
     './',
     './index.html',
@@ -11,11 +11,9 @@ const ASSETS = [
     './models_caltech101/lmfrnet_hires.onnx',
     './models_caltech101/mobilenetv3_large.onnx',
     './models_caltech101/resnet18.onnx',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd.wasm',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.wasm',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm',
+    './ort.min.js',
+    './ort-wasm.wasm',
+    './ort-wasm-simd.wasm',
     'https://cdn.tailwindcss.com'
 ];
 
