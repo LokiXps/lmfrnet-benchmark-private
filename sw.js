@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v33';
+const CACHE_NAME = 'lmfrnet-benchmark-v36';
 const ASSETS = [
     './',
     './index.html',
@@ -21,6 +21,10 @@ const ASSETS = [
     './ort-wasm-simd-threaded.mjs',
     './ort-wasm-simd-threaded.jsep.mjs',
     './ort-wasm-threaded.jsep.mjs',
+    './ort-wasm-simd-threaded.jsep.wasm',
+    './ort-wasm-threaded.jsep.wasm',
+    './ort-wasm-simd-threaded.jsep.js',
+    './ort-wasm-threaded.jsep.js',
     './tailwind.min.js'
 ];
 

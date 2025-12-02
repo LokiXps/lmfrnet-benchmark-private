@@ -607,9 +607,9 @@
 
                 // Configure ONNX Runtime to use local WASM files
                 ort.env.wasm.wasmPaths = './';
-                ort.env.wasm.numThreads = 1;
-                ort.env.wasm.simd = false;
-                ort.env.wasm.proxy = false;
+                ort.env.wasm.numThreads = 1;       // 1 threadに固定（threaded jsepを避ける）
+                ort.env.wasm.simd = false;         // SIMD無効（simd系モジュールを避ける）
+                ort.env.wasm.proxy = false;        // worker proxyなし（単純ロード）
 
                 initModelSelect();
                 await loadLabels();
