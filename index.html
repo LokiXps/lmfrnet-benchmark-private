@@ -617,7 +617,6 @@
             try {
                 // Assets List
                 let assets = [
-                    './',
                     './index.html',
                     './manifest.json',
                     './labels.json',
@@ -658,7 +657,10 @@
                         // Verify content type to prevent caching 404 HTML pages as code
                         const contentType = res.headers.get('content-type');
                         if (contentType && contentType.includes('text/html')) {
-                            throw new Error(`Invalid content type: ${contentType} (Expected binary/json)`);
+                            // Allow HTML files explicitly
+                            if (!url.includes('.html')) {
+                                throw new Error(`Invalid content type: ${contentType} (Expected binary/json)`);
+                            }
                         }
 
                         // Clone response for cache
