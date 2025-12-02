@@ -641,10 +641,10 @@
                 // Sequential fetch to avoid network errors
                 for (const url of assets) {
                     try {
-                        const req = new Request(url, { mode: 'cors' });
-                        const res = await fetch(req);
+                        // Use string URL as key to avoid header mismatch
+                        const res = await fetch(url, { mode: 'cors', cache: 'reload' });
                         if (res.ok) {
-                            await cache.put(req, res);
+                            await cache.put(url, res);
                         }
                     } catch (e) {
                         console.error('Failed to cache:', url, e);
