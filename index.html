@@ -7,338 +7,17 @@
     <meta name="theme-color" content="#007aff">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="robots" content="noindex, nofollow">
+    <title>ブラウザで動く LMFRNet ベンチマーク</title>
     <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
-    <meta name="robots" content="noindex, nofollow">
-    <title>ローカル環境で画像認識精度実験</title>
-    <script>
-        // Register Service Worker for Offline Support
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(reg => console.log('SW registered:', reg))
-                    .catch(err => console.log('SW registration failed:', err));
-            });
-        }
-    </script>
-    <script src="./ort.min.js"></script>
-    <script src="./tailwind.min.js"></script>
-    <style>
-        /* ライトモード設定 */
-        :root {
-            --bg: #f5f5f7;
-            --surface: #ffffff;
-            --surface-highlight: #f0f0f5;
-            --border: #d1d1d6;
-            --primary: #007aff;
-            --success: #34c759;
-            --danger: #ff3b30;
-            --text-main: #1c1c1e;
-            --text-sub: #8e8e93;
-            --font-mono: 'SF Mono', 'Menlo', monospace;
-        }
-
-        body {
-            background-color: var(--bg);
-            color: var(--text-main);
-            font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Segoe UI", Roboto, sans-serif;
-            -webkit-font-smoothing: antialiased;
-            padding-bottom: 40px;
-            font-size: 14px;
-        }
-
-        .app-container {
-            max-width: 920px;
-            margin: 0 auto;
-            padding: 16px;
-        }
-
-        .panel {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            margin-bottom: 16px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-        }
-
-        .panel-header {
-            padding: 12px 16px;
-            border-bottom: 1px solid var(--border);
-            background: #fafafa;
-            font-weight: 700;
-            font-size: 14px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            color: var(--text-main);
-        }
-
-        /* Metrics Grid */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 1px;
-            background: var(--border);
-        }
-
-        .metric-box {
-            background: var(--surface);
-            padding: 12px;
-            text-align: center;
-        }
-
-        .metric-val {
-            font-size: 20px;
-            font-weight: 800;
-            font-family: var(--font-mono);
-            color: var(--primary);
-        }
-
-        .metric-label {
-            font-size: 11px;
-            color: var(--text-sub);
-            margin-top: 4px;
-            font-weight: 600;
-        }
-
-        /* Improved Table */
-        .log-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-            table-layout: fixed;
-        }
-
-        .log-table th {
-            text-align: left;
-            color: var(--text-sub);
-            font-weight: 600;
-            padding: 10px;
-            border-bottom: 1px solid var(--border);
-            background: #f9f9f9;
-            font-size: 11px;
-        }
-
-        .log-table td {
-            padding: 10px;
-            border-bottom: 1px solid #f0f0f0;
-            vertical-align: middle;
-            color: var(--text-main);
-        }
-
-        .col-img {
-            width: 70px;
-        }
-
-        .col-res {
-            width: 40px;
-            text-align: center;
-        }
-
-        .col-conf {
-            width: 80px;
-            text-align: right;
-            font-family: var(--font-mono);
-            font-size: 11px;
-            color: #888;
-        }
-
-        .status-icon {
-            font-size: 16px;
-        }
-
-        .thumb {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 6px;
-            background: #eee;
-            border: 1px solid #eee;
-            cursor: zoom-in;
-            transition: transform 0.1s;
-        }
-
-        .thumb:active {
-            transform: scale(0.95);
-        }
-
-        /* Progress Bar */
-        .progress-container {
-            height: 6px;
-            background: #e5e5ea;
-            border-radius: 3px;
-            overflow: hidden;
-            margin-top: 12px;
-            display: none;
-        }
-
-        .progress-bar {
-            height: 100%;
-            background: var(--primary);
-            width: 0%;
-            transition: width 0.2s ease-out;
-        }
-
-        /* Controls */
-        select,
-        input[type="text"] {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--text-main);
-            padding: 8px;
-            border-radius: 8px;
-            width: 100%;
-            font-size: 14px;
-        }
-
-        button {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            color: var(--primary);
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-weight: 600;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s;
-            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-        }
-
-        button:active {
-            transform: scale(0.98);
-            background: #f0f0f0;
-        }
-
-        button.primary {
-            background: var(--primary);
-            color: white;
-            border: none;
-            box-shadow: 0 2px 4px rgba(0, 122, 255, 0.3);
-        }
-
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            box-shadow: none;
-            filter: grayscale(100%);
-        }
-
-        /* Tabs */
-        .tabs {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 16px;
-            background: #e5e5ea;
-            padding: 4px;
-            border-radius: 10px;
-        }
-
-        .tab {
-            flex: 1;
-            padding: 8px;
-            text-align: center;
-            border-radius: 7px;
-            color: #666;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.2s;
-        }
-
-        .tab.active {
-            background: white;
-            color: black;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        /* Dataset Grid */
-        .dataset-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-            gap: 8px;
-            padding: 8px;
-        }
-
-        .dataset-item {
-            position: relative;
-            aspect-ratio: 1;
-            overflow: hidden;
-            border-radius: 6px;
-            border: 1px solid #eee;
-        }
-
-        .dataset-item img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-        }
-
-        .dataset-label {
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.9);
-            font-size: 9px;
-            padding: 2px 4px;
-            text-align: center;
-            border-top: 1px solid #eee;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        /* Modal */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.2s;
-        }
-
-        .modal-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .modal-content {
-            max-width: 90%;
-            max-height: 90%;
-            border-radius: 8px;
-            overflow: hidden;
-        }
-
-        .modal-content img {
-            max-width: 100%;
-            max-height: 80vh;
-            display: block;
-        }
-
-        .model-badge {
-            font-size: 11px;
-            background: #e0f2fe;
-            color: #0369a1;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: normal;
-            margin-left: 8px;
-            font-family: var(--font-mono);
-        }
-    </style>
+    <link rel="stylesheet" href="style.css">
+    <!-- ONNX Runtime Web (CDN: WASM版) -->
+    <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.wasm.min.js"></script>
+    <script defer src="main.js"></script>
 </head>
 
 <body>
-
     <div class="app-container">
         <header class="flex justify-between items-center mb-4">
             <div>
@@ -348,185 +27,151 @@
             <div id="model-status" class="text-xs px-2 py-1 rounded bg-gray-200 text-gray-500 font-bold">未ロード</div>
         </header>
 
-        <!-- SETUP VIEW -->
-        <div id="view-setup" class="panel p-8 text-center bg-white shadow-lg rounded-xl">
-            <div class="mb-6 text-6xl">📥</div>
-            <h2 class="text-xl font-bold mb-2">初期セットアップ</h2>
-            <p class="text-sm text-gray-600 mb-8 leading-relaxed">
-                このアプリはサーバーと通信せず、<br>
-                あなたの端末内（オンデバイス）でAI推論を行います。<br>
-                <br>
-                最初にモデルとテストデータを<br>
-                端末にダウンロードしてください。<br>
-                <span class="text-xs text-gray-400">(約100MB / Wi-Fi環境を推奨)</span>
-            </p>
+        <!-- モデル選択 -->
+        <div class="panel p-4 bg-white">
+            <label class="text-xs text-gray-500 block mb-1 font-bold">モデル選択 (自動ロード)</label>
+            <select id="model-select"
+                class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
+            </select>
+        </div>
 
-            <button id="btn-download-start" onclick="startSetup()"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-8 rounded-full shadow-lg text-lg w-full max-w-xs transition-transform active:scale-95">
-                ダウンロード開始
-            </button>
+        <!-- タブ -->
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab('bench')">1. 精度実験 (200枚)</div>
+            <div class="tab" onclick="switchTab('dataset')">2. データセット確認</div>
+            <div class="tab" onclick="switchTab('custom')">3. カスタム検証</div>
+        </div>
 
-            <div id="setup-progress" class="hidden mt-8">
-                <div class="flex justify-between text-xs text-gray-500 mb-1">
-                    <span id="setup-status-text">準備中...</span>
-                    <span id="setup-percent">0%</span>
+        <!-- ベンチマーク -->
+        <div id="view-bench">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>実験結果</span>
+                    <span class="model-badge model-name-display">Model: ---</span>
                 </div>
-                <div class="h-4 bg-gray-100 rounded-full overflow-hidden border border-gray-200">
-                    <div id="setup-bar" class="h-full bg-blue-500 w-0 transition-all duration-200"></div>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-acc">--</div>
+                        <div class="metric-label">正解率 (Accuracy)</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-conf">--</div>
+                        <div class="metric-label">平均確信度</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-time">--ms</div>
+                        <div class="metric-label">平均推論時間</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="bench-prog">0/200</div>
+                        <div class="metric-label">完了数</div>
+                    </div>
+                </div>
+                <div class="p-4 border-t border-[var(--border)]">
+                    <button class="primary w-full py-3" id="btn-run-bench" onclick="runBenchmark()" disabled>200枚ベンチマーク実行</button>
+                    <div id="bench-progress-container" class="progress-container">
+                        <div id="bench-progress-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <span>実験結果(詳細)</span>
+                    <span class="text-xs font-normal text-gray-500">画像クリックで拡大</span>
+                </div>
+                <div class="max-h-[400px] overflow-y-auto bg-white">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th class="col-res">判定</th>
+                                <th class="col-img">画像(正解)</th>
+                                <th>正解ラベル vs 予測結果</th>
+                                <th class="col-conf">確信度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bench-table-body"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
 
-        <!-- MAIN VIEW (Hidden initially) -->
-        <div id="view-main" class="hidden">
-            <div class="panel p-4 bg-white">
-                <label class="text-xs text-gray-500 block mb-1 font-bold">モデル選択 (オフライン)</label>
-                <select id="model-select"
-                    class="w-full bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 p-2.5">
-                </select>
-            </div>
-
-            <!-- Tabs -->
-            <div class="tabs">
-                <div class="tab active" onclick="switchTab('bench')">1. 精度実験 (200枚)</div>
-                <div class="tab" onclick="switchTab('dataset')">2. データセット確認</div>
-                <div class="tab" onclick="switchTab('custom')">3. カスタム検証</div>
-            </div>
-
-            <!-- TAB 1: Benchmark -->
-            <div id="view-bench">
-                <div class="panel">
-                    <div class="panel-header">
-                        <span>実験結果</span>
-                        <span class="model-badge model-name-display">Model: ---</span>
-                    </div>
-                    <div class="metrics-grid">
-                        <div class="metric-box">
-                            <div class="metric-val" id="bench-acc">--</div>
-                            <div class="metric-label">正解率 (Accuracy)</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="bench-conf">--</div>
-                            <div class="metric-label">平均確信度</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="bench-time">--ms</div>
-                            <div class="metric-label">平均推論時間</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="bench-prog">0/200</div>
-                            <div class="metric-label">完了数</div>
-                        </div>
-                    </div>
-                    <div class="p-4 border-t border-[var(--border)]">
-                        <button class="primary w-full py-3" id="btn-run-bench" onclick="runBenchmark()"
-                            disabled>200枚ベンチマーク実行</button>
-                        <div id="bench-progress-container" class="progress-container">
-                            <div id="bench-progress-bar" class="progress-bar"></div>
-                        </div>
-                    </div>
+        <!-- データセット確認 -->
+        <div id="view-dataset" class="hidden">
+            <div class="panel">
+                <div class="panel-header">
+                    <span>Caltech101 テスト用データセット (200枚)</span>
                 </div>
-
-                <div class="panel">
-                    <div class="panel-header">
-                        <span>実験結果(詳細)</span>
-                        <span class="text-xs font-normal text-gray-500">画像クリックで拡大</span>
-                    </div>
-                    <div class="max-h-[400px] overflow-y-auto bg-white">
-                        <table class="log-table">
-                            <thead>
-                                <tr>
-                                    <th class="col-res">判定</th>
-                                    <th class="col-img">画像(正解)</th>
-                                    <th>正解ラベル vs 予測結果</th>
-                                    <th class="col-conf">確信度</th>
-                                </tr>
-                            </thead>
-                            <tbody id="bench-table-body"></tbody>
-                        </table>
+                <div class="p-2 bg-gray-50">
+                    <p class="text-xs text-gray-500 mb-2 px-1">ベンチマークに使用される全画像リストです。画像をクリックするとパスを確認できます。</p>
+                    <div id="dataset-grid" class="dataset-grid">
+                        <div class="p-4 text-center text-gray-400 col-span-full">読み込み中...</div>
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- TAB 2: Dataset Preview -->
-            <div id="view-dataset" class="hidden">
-                <div class="panel">
-                    <div class="panel-header">
-                        <span>Caltech101 テスト用データセット (200枚)</span>
-                    </div>
-                    <div class="p-2 bg-gray-50">
-                        <p class="text-xs text-gray-500 mb-2 px-1">ベンチマークに使用される全画像リストです。画像をクリックするとパスを確認できます。</p>
-                        <div id="dataset-grid" class="dataset-grid">
-                            <div class="p-4 text-center text-gray-400 col-span-full">読み込み中...</div>
-                        </div>
-                    </div>
+        <!-- カスタム検証 -->
+        <div id="view-custom" class="hidden">
+            <div class="panel p-4">
+                <div class="mb-4">
+                    <label class="block text-xs text-gray-500 font-bold mb-2">検証したい画像を追加 (複数選択可)</label>
+                    <input type="file" id="custom-files" accept="image/*" multiple
+                        class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
+                        onchange="handleCustomFiles(this)">
+                </div>
+
+                <div id="custom-staging"
+                    class="space-y-2 mb-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 min-h-[100px] flex flex-col justify-center">
+                    <p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>
+                </div>
+
+                <div class="flex gap-2">
+                    <button class="flex-1 bg-white text-gray-600" onclick="clearCustom()">クリア</button>
+                    <button class="primary flex-1" id="btn-run-custom" onclick="runCustomBatch()" disabled>検証開始</button>
                 </div>
             </div>
 
-            <!-- TAB 3: Custom -->
-            <div id="view-custom" class="hidden">
-                <div class="panel p-4">
-                    <div class="mb-4">
-                        <label class="block text-xs text-gray-500 font-bold mb-2">検証したい画像を追加 (複数選択可)</label>
-                        <input type="file" id="custom-files" accept="image/*" multiple
-                            class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer"
-                            onchange="handleCustomFiles(this)">
+            <div class="panel" id="custom-result-panel" style="display:none;">
+                <div class="panel-header">
+                    <span>検証結果</span>
+                    <span class="model-badge model-name-display">Model: ---</span>
+                </div>
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-acc">--</div>
+                        <div class="metric-label">正解率</div>
                     </div>
-
-                    <div id="custom-staging"
-                        class="space-y-2 mb-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 min-h-[100px] flex flex-col justify-center">
-                        <p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-count">0</div>
+                        <div class="metric-label">枚数</div>
                     </div>
-
-                    <div class="flex gap-2">
-                        <button class="flex-1 bg-white text-gray-600" onclick="clearCustom()">クリア</button>
-                        <button class="primary flex-1" id="btn-run-custom" onclick="runCustomBatch()"
-                            disabled>検証開始</button>
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-time">--ms</div>
+                        <div class="metric-label">平均時間</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-val" id="custom-conf">--</div>
+                        <div class="metric-label">平均確信度</div>
                     </div>
                 </div>
-
-                <div class="panel" id="custom-result-panel" style="display:none;">
-                    <div class="panel-header">
-                        <span>検証結果</span>
-                        <span class="model-badge model-name-display">Model: ---</span>
-                    </div>
-                    <div class="metrics-grid">
-                        <div class="metric-box">
-                            <div class="metric-val" id="custom-acc">--</div>
-                            <div class="metric-label">正解率</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="custom-count">0</div>
-                            <div class="metric-label">枚数</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="custom-time">--ms</div>
-                            <div class="metric-label">平均時間</div>
-                        </div>
-                        <div class="metric-box">
-                            <div class="metric-val" id="custom-conf">--</div>
-                            <div class="metric-label">平均確信度</div>
-                        </div>
-                    </div>
-                    <div class="max-h-[400px] overflow-y-auto bg-white">
-                        <table class="log-table">
-                            <thead>
-                                <tr>
-                                    <th class="col-res">判定</th>
-                                    <th class="col-img">画像</th>
-                                    <th>指定ラベル vs 予測</th>
-                                    <th class="col-conf">確信度</th>
-                                </tr>
-                            </thead>
-                            <tbody id="custom-table-body"></tbody>
-                        </table>
-                    </div>
+                <div class="max-h-[400px] overflow-y-auto bg-white">
+                    <table class="log-table">
+                        <thead>
+                            <tr>
+                                <th class="col-res">判定</th>
+                                <th class="col-img">画像</th>
+                                <th>指定ラベル vs 予測</th>
+                                <th class="col-conf">確信度</th>
+                            </tr>
+                        </thead>
+                        <tbody id="custom-table-body"></tbody>
+                    </table>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Image Modal -->
     <div id="image-modal" class="modal-overlay" onclick="closeModal()">
         <div class="modal-content" onclick="event.stopPropagation()">
             <img id="modal-img" src="">
@@ -535,466 +180,6 @@
             </div>
         </div>
     </div>
-
-    <script>
-        const MODEL_OPTIONS = [
-            { name: "LMFRNet (Default)", path: "./models_caltech101/lmfrnet_hires.onnx" },
-            { name: "LMFRNet Hires", path: "./models_caltech101/lmfrnet.onnx" },
-            { name: "MobileNetV3 Large", path: "./models_caltech101/mobilenetv3_large.onnx" },
-            { name: "ResNet18", path: "./models_caltech101/resnet18.onnx" }
-        ];
-
-        let LABELS = [];
-        const LABEL_TRANSLATIONS = {
-            "Faces": "顔", "Faces_easy": "顔(Easy)", "Leopards": "ヒョウ", "Motorbikes": "バイク", "accordion": "アコーディオン",
-            "airplanes": "飛行機", "anchor": "錨", "ant": "アリ", "barrel": "樽", "bass": "バス(魚)", "beaver": "ビーバー",
-            "binocular": "双眼鏡", "bonsai": "盆栽", "brain": "脳", "brontosaurus": "ブロントサウルス", "buddha": "仏像",
-            "butterfly": "蝶", "camera": "カメラ", "cannon": "大砲", "car_side": "車(横)", "ceiling_fan": "シーリングファン",
-            "cellphone": "携帯電話", "chair": "椅子", "chandelier": "シャンデリア", "cougar_body": "クーガー(体)", "cougar_face": "クーガー(顔)",
-            "crab": "カニ", "crayfish": "ザリガニ", "crocodile": "ワニ", "crocodile_head": "ワニ(頭)", "cup": "カップ",
-            "dalmatian": "ダルメシアン", "dollar_bill": "ドル札", "dolphin": "イルカ", "dragonfly": "トンボ",
-            "electric_guitar": "エレキギター", "elephant": "象", "emu": "エミュー", "euphonium": "ユーフォニアム", "ewer": "水差し",
-            "ferry": "フェリー", "flamingo": "フラミンゴ", "flamingo_head": "フラミンゴ(頭)", "garfield": "ガーフィールド",
-            "gerenuk": "ゲレヌク", "gramophone": "蓄音機", "grand_piano": "グランドピアノ", "hawksbill": "タイマイ(亀)",
-            "headphone": "ヘッドフォン", "hedgehog": "ハリネズミ", "helicopter": "ヘリコプター", "ibis": "トキ",
-            "inline_skate": "インラインスケート", "joshua_tree": "ジョシュアツリー", "kangaroo": "カンガルー",
-            "ketch": "ケッチ(帆船)", "lamp": "ランプ", "laptop": "ノートPC", "llama": "ラマ", "lobster": "ロブスター",
-            "lotus": "蓮", "mandolin": "マンドリン", "mayfly": "カゲロウ", "menorah": "メノラー", "metronome": "メトロノーム",
-            "minaret": "ミナレット", "nautilus": "オウムガイ", "octopus": "タコ", "okapi": "オカピ", "pagoda": "塔",
-            "panda": "パンダ", "pigeon": "鳩", "pizza": "ピザ", "platypus": "カモノハシ", "pyramid": "ピラミッド",
-            "revolver": "リボルバー", "rhino": "サイ", "rooster": "雄鶏", "saxophone": "サックス", "schooner": "スクーナー(船)",
-            "scissors": "ハサミ", "scorpion": "サソリ", "sea_horse": "タツノオトシゴ", "snoopy": "スヌーピー",
-            "soccer_ball": "サッカーボール", "stapler": "ホッチキス", "starfish": "ヒトデ", "stegosaurus": "ステゴサウルス",
-            "stop_sign": "一時停止標識", "strawberry": "イチゴ", "sunflower": "ヒマワリ", "tick": "ダニ", "trilobite": "三葉虫",
-            "umbrella": "傘", "watch": "腕時計", "water_lilly": "スイレン", "wheelchair": "車椅子", "wild_cat": "ヤマネコ",
-            "windsor_chair": "ウィンザーチェア", "wrench": "レンチ", "yin_yang": "陰陽"
-        };
-
-        let BENCHMARK_DATA = [];
-        let customImages = [];
-        let session = null;
-        let currentModelName = "";
-        let isRunning = false;
-
-
-        const statusEl = document.getElementById('model-status');
-        const modelSelect = document.getElementById('model-select');
-        const benchTableBody = document.getElementById('bench-table-body');
-        const benchAccEl = document.getElementById('bench-acc');
-        const benchTimeEl = document.getElementById('bench-time');
-        const benchConfEl = document.getElementById('bench-conf');
-        const benchProgEl = document.getElementById('bench-prog');
-        const benchProgressBar = document.getElementById('bench-progress-bar');
-        const benchProgressContainer = document.getElementById('bench-progress-container');
-        const datasetGrid = document.getElementById('dataset-grid');
-        const btnRunBench = document.getElementById('btn-run-bench');
-        const btnRunCustom = document.getElementById('btn-run-custom');
-        const customResultPanel = document.getElementById('custom-result-panel');
-        const modelNameDisplays = document.querySelectorAll('.model-name-display');
-
-        // Global Error Handler for Mobile Debugging
-        window.onerror = function (msg, url, lineNo, columnNo, error) {
-            alert('Error: ' + msg + '\nURL: ' + url + '\nLine: ' + lineNo);
-            return false;
-        };
-
-        // Init
-        window.addEventListener('load', async () => {
-            try {
-                // Always show main view immediately
-                document.getElementById('view-setup').classList.add('hidden');
-                document.getElementById('view-main').classList.remove('hidden');
-
-                // Use official ONNX Runtime Web CDN assets
-                ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
-                ort.env.wasm.numThreads = 1; // iPhone安定優先
-                ort.env.wasm.simd = true;
-                ort.env.wasm.proxy = false;
-
-                initModelSelect();
-                await loadLabels();
-                await loadSamples();
-                renderDatasetGrid();
-                await loadModel(MODEL_OPTIONS[0].path);
-
-            } catch (e) {
-                console.error("Init Error:", e);
-                alert("初期化エラー: " + e.message);
-            }
-        });
-
-        function initModelSelect() {
-            modelSelect.innerHTML = '';
-            MODEL_OPTIONS.forEach(opt => {
-                const option = document.createElement('option');
-                option.value = opt.path;
-                option.textContent = opt.name;
-                modelSelect.appendChild(option);
-            });
-            modelSelect.value = MODEL_OPTIONS[0].path;
-            modelSelect.addEventListener('change', (e) => {
-                loadModel(e.target.value);
-            });
-        }
-
-        async function loadLabels() {
-            try {
-                const res = await fetch('labels.json');
-                LABELS = await res.json();
-            } catch (e) {
-                console.error("Failed to load labels.json", e);
-            }
-        }
-
-        async function loadSamples() {
-            try {
-                const res = await fetch('samples.json');
-                BENCHMARK_DATA = await res.json();
-            } catch (e) {
-                console.error("Failed to load samples.json", e);
-            }
-        }
-
-        async function loadModel(path) {
-            const name = path.split('/').pop().replace('.onnx', '');
-            currentModelName = name;
-            updateModelNameDisplay(name);
-
-            statusEl.textContent = "ロード中...";
-            statusEl.className = "text-xs px-2 py-1 rounded bg-yellow-200 text-yellow-800 font-bold";
-            enableRunButtons(false);
-
-            try {
-                // Remove cache busting for PWA to work offline
-                const loadPath = path;
-
-                // Low memory options for mobile
-                const options = {
-                    executionProviders: ['wasm'],
-                    enableCpuMemArena: false,
-                    enableMemPattern: false,
-                    executionMode: 'sequential'
-                };
-
-                session = await ort.InferenceSession.create(loadPath, options);
-                statusEl.textContent = "準備完了";
-                statusEl.className = "text-xs px-2 py-1 rounded bg-green-200 text-green-800 font-bold";
-                enableRunButtons(true);
-            } catch (e) {
-                console.error("Main thread load failed:", e);
-                statusEl.textContent = "エラー";
-                statusEl.className = "text-xs px-2 py-1 rounded bg-red-200 text-red-800 font-bold";
-                alert("モデル読み込みに失敗しました: " + e.message);
-            }
-        }
-
-        function updateModelNameDisplay(name) {
-            modelNameDisplays.forEach(el => el.textContent = `Model: ${name}`);
-        }
-
-        function enableRunButtons(enabled) {
-            btnRunBench.disabled = !enabled;
-            btnRunCustom.disabled = !enabled || customImages.length === 0;
-        }
-
-        async function runInference(blob) {
-            const pixelData = await loadAndCenterCrop(blob, 224);
-
-            if (!session) {
-                throw new Error("Model session not loaded");
-            }
-
-            const { probs, inferenceTime } = await runInferenceMainThread(pixelData);
-            return { probs, time: inferenceTime };
-        }
-
-        async function loadAndCenterCrop(blob, target) {
-            const url = URL.createObjectURL(blob);
-            try {
-                const img = await new Promise((resolve, reject) => {
-                    const image = new Image();
-                    image.crossOrigin = "anonymous";
-                    image.onload = () => resolve(image);
-                    image.onerror = reject;
-                    image.src = url;
-                });
-
-                const canvas = document.createElement('canvas');
-                canvas.width = target;
-                canvas.height = target;
-                const ctx = canvas.getContext('2d');
-
-                // High quality resize settings
-                ctx.imageSmoothingEnabled = true;
-                ctx.imageSmoothingQuality = 'high';
-
-                // Python: transforms.Resize(256) -> transforms.CenterCrop(224)
-                // JS: Resize short edge to 256, then center crop 224
-                const resizeShortEdge = 256;
-                const scale = Math.max(resizeShortEdge / img.width, resizeShortEdge / img.height);
-                const scaledWidth = img.width * scale;
-                const scaledHeight = img.height * scale;
-
-                // Center crop calculation
-                const dx = (target - scaledWidth) / 2;
-                const dy = (target - scaledHeight) / 2;
-
-                ctx.drawImage(img, dx, dy, scaledWidth, scaledHeight);
-                return ctx.getImageData(0, 0, target, target).data;
-            } finally {
-                URL.revokeObjectURL(url);
-            }
-        }
-
-        async function runInferenceMainThread(pixelData) {
-            const size = 224;
-            const float32Data = new Float32Array(3 * size * size);
-
-            // Normalize (Mean=[0.485, 0.456, 0.406], Std=[0.229, 0.224, 0.225])
-            for (let i = 0; i < size * size; i++) {
-                const r = pixelData[i * 4] / 255.0;
-                const g = pixelData[i * 4 + 1] / 255.0;
-                const b = pixelData[i * 4 + 2] / 255.0;
-
-                float32Data[i] = (r - 0.485) / 0.229;
-                float32Data[size * size + i] = (g - 0.456) / 0.224;
-                float32Data[2 * size * size + i] = (b - 0.406) / 0.225;
-            }
-
-            const tensor = new ort.Tensor('float32', float32Data, [1, 3, size, size]);
-            const feeds = { [session.inputNames[0]]: tensor };
-
-            const start = performance.now();
-            const results = await session.run(feeds);
-            const end = performance.now();
-
-            const output = results[session.outputNames[0]].data;
-
-            return {
-                probs: softmax(Array.from(output)),
-                inferenceTime: end - start
-            };
-        }
-
-        function softmax(arr) {
-            const max = Math.max(...arr);
-            const exps = arr.map(x => Math.exp(x - max));
-            const sum = exps.reduce((a, b) => a + b, 0);
-            return exps.map(x => x / sum);
-        }
-
-        async function runBenchmark() {
-            if (isRunning) return;
-            if (!session || BENCHMARK_DATA.length === 0) {
-                alert("モデルまたはデータが準備できていません。");
-                return;
-            }
-            isRunning = true;
-            enableRunButtons(false);
-
-            benchTableBody.innerHTML = '';
-            benchAccEl.textContent = '--';
-            benchTimeEl.textContent = '--';
-            benchConfEl.textContent = '--';
-            benchProgEl.textContent = '0/200';
-            benchProgressBar.style.width = '0%';
-            benchProgressContainer.style.display = 'block';
-
-            let correct = 0;
-            let totalTime = 0;
-            let totalConf = 0;
-
-            for (let i = 0; i < BENCHMARK_DATA.length; i++) {
-                const item = BENCHMARK_DATA[i];
-                const imgPath = `./samples/${item.filename}`;
-
-                try {
-                    const resp = await fetch(imgPath);
-                    const blob = await resp.blob();
-
-                    const { probs, time } = await runInference(blob);
-
-                    const predIndex = probs.indexOf(Math.max(...probs));
-                    const confidence = probs[predIndex];
-                    const isCorrect = predIndex === item.label;
-
-                    if (isCorrect) correct++;
-                    totalTime += time;
-                    totalConf += confidence;
-
-                    const row = document.createElement('tr');
-                    row.className = isCorrect ? 'bg-green-50' : 'bg-red-50';
-                    row.innerHTML = `
-                        <td class="col-res text-center">${isCorrect ? '✅' : '❌'}</td>
-                        <td class="col-img">
-                            <div class="flex items-center gap-2">
-                                <img src="${imgPath}" class="w-10 h-10 object-cover rounded border cursor-pointer" onclick="openModal('${imgPath}')">
-                                <span class="text-xs text-gray-500">${getLabelName(item.label)}</span>
-                            </div>
-                        </td>
-                        <td class="text-xs">
-                            <div>正解: ${getLabelName(item.label)}</div>
-                            <div class="${isCorrect ? 'text-green-700' : 'text-red-700'} font-bold">予測: ${getLabelName(predIndex)}</div>
-                        </td>
-                        <td class="col-conf text-right font-mono text-xs">
-                            ${(confidence * 100).toFixed(1)}%
-                        </td>
-                    `;
-                    benchTableBody.prepend(row);
-
-                    const currentCount = i + 1;
-                    benchAccEl.textContent = `${((correct / currentCount) * 100).toFixed(1)}%`;
-                    benchTimeEl.innerHTML = `${(totalTime / currentCount).toFixed(1)}ms <span class="text-sm text-gray-400 font-normal">(${time.toFixed(1)}ms)</span>`;
-                    benchConfEl.textContent = `${((totalConf / currentCount) * 100).toFixed(1)}%`;
-                    benchProgEl.textContent = `${currentCount}/${BENCHMARK_DATA.length}`;
-                    benchProgressBar.style.width = `${(currentCount / BENCHMARK_DATA.length) * 100}%`;
-
-                } catch (e) {
-                    console.error(`Error processing ${item.filename}:`, e);
-                }
-
-                if (i % 5 === 0) {
-                    await new Promise(r => setTimeout(r, 0));
-                }
-            }
-
-            isRunning = false;
-            enableRunButtons(true);
-            benchProgressContainer.style.display = 'none';
-        }
-
-        function handleCustomFiles(input) {
-            customImages.forEach(i => URL.revokeObjectURL(i.url));
-            customImages = [];
-            const container = document.getElementById('custom-staging');
-            container.innerHTML = '';
-
-            Array.from(input.files || []).forEach(file => {
-                const url = URL.createObjectURL(file);
-                const div = document.createElement('div');
-                div.className = "flex gap-2 items-center border-b border-gray-200 py-2";
-
-                const img = document.createElement('img');
-                img.src = url;
-                img.className = "thumb";
-                img.onclick = () => openModal(url);
-
-                const select = document.createElement('select');
-                let options = `<option value="-1">正解ラベルを選択...</option>`;
-                LABELS.forEach((_, idx) => options += `<option value="${idx}">[${idx}] ${getLabelName(idx)}</option>`);
-                select.innerHTML = options;
-                select.onchange = (e) => {
-                    const t = customImages.find(item => item.url === url);
-                    if (t) t.labelIndex = parseInt(e.target.value, 10);
-                };
-
-                div.appendChild(img);
-                div.appendChild(select);
-                container.appendChild(div);
-                customImages.push({ file, labelIndex: -1, url });
-            });
-
-            document.getElementById('custom-result-panel').style.display = 'none';
-            btnRunCustom.disabled = customImages.length === 0 || !session;
-        }
-
-        function clearCustom() {
-            customImages.forEach(i => URL.revokeObjectURL(i.url));
-            customImages = [];
-            document.getElementById('custom-staging').innerHTML = '<p class="text-xs text-gray-400 text-center">ここにプレビューが表示されます</p>';
-            document.getElementById('custom-result-panel').style.display = 'none';
-            btnRunCustom.disabled = true;
-        }
-
-        async function runCustomBatch() {
-            if (isRunning || customImages.length === 0 || !session) return;
-
-            isRunning = true;
-            enableRunButtons(false);
-            customResultPanel.style.display = 'block';
-            const tbody = document.getElementById('custom-table-body');
-            tbody.innerHTML = '';
-
-            let correct = 0;
-            let totalTime = 0;
-            let totalConf = 0;
-            let countWithLabel = 0;
-
-            for (let i = 0; i < customImages.length; i++) {
-                const item = customImages[i];
-                const { probs, time } = await runInference(item.file);
-                const predIndex = probs.indexOf(Math.max(...probs));
-                const confidence = probs[predIndex];
-                const isCorrect = item.labelIndex !== -1 && predIndex === item.labelIndex;
-
-                totalTime += time;
-                totalConf += confidence;
-                if (item.labelIndex !== -1) countWithLabel++;
-                if (isCorrect) correct++;
-
-                const row = document.createElement('tr');
-                row.className = isCorrect ? 'bg-green-50' : (item.labelIndex === -1 ? '' : 'bg-red-50');
-                row.innerHTML = `
-                    <td class="col-res text-center">${item.labelIndex === -1 ? '－' : (isCorrect ? '✅' : '❌')}</td>
-                    <td class="col-img">
-                        <img src="${item.url}" class="thumb" onclick="openModal('${item.url}')">
-                    </td>
-                    <td class="text-xs">
-                        <div>指定: ${item.labelIndex === -1 ? '未指定' : getLabelName(item.labelIndex)}</div>
-                        <div class="${isCorrect ? 'text-green-700' : 'text-red-700'} font-bold">予測: ${getLabelName(predIndex)}</div>
-                    </td>
-                    <td class="col-conf text-right font-mono text-xs">${(confidence * 100).toFixed(1)}%</td>
-                `;
-                tbody.appendChild(row);
-            }
-
-            const total = customImages.length;
-            document.getElementById('custom-count').textContent = `${total}`;
-            document.getElementById('custom-time').textContent = `${(totalTime / total).toFixed(0)}ms`;
-            document.getElementById('custom-conf').textContent = `${((totalConf / total) * 100).toFixed(1)}%`;
-            document.getElementById('custom-acc').textContent = countWithLabel > 0 ? `${((correct / countWithLabel) * 100).toFixed(1)}%` : '--';
-
-            isRunning = false;
-            enableRunButtons(true);
-        }
-
-        function renderDatasetGrid() {
-            datasetGrid.innerHTML = '';
-            BENCHMARK_DATA.slice(0, 200).forEach(item => {
-                const div = document.createElement('div');
-                div.className = "dataset-item";
-                div.innerHTML = `
-                    <img src="./samples/${item.filename}" loading="lazy">
-                    <div class="dataset-label">${getLabelName(item.label)}</div>
-                `;
-                div.onclick = () => openModal(`./samples/${item.filename}`);
-                datasetGrid.appendChild(div);
-            });
-        }
-
-        function getLabelName(index) {
-            const en = LABELS[index];
-            if (en) return LABEL_TRANSLATIONS[en] || en;
-            return `Unknown (${index})`;
-        }
-
-        function switchTab(tabId) {
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('[onclick="switchTab(\'' + tabId + '\')"]').forEach(t => t.classList.add('active'));
-            document.getElementById('view-bench').classList.add('hidden');
-            document.getElementById('view-dataset').classList.add('hidden');
-            document.getElementById('view-custom').classList.add('hidden');
-            document.getElementById(`view-${tabId}`).classList.remove('hidden');
-        }
-
-        function openModal(src) {
-            document.getElementById('modal-img').src = src;
-            document.getElementById('image-modal').classList.add('active');
-        }
-        function closeModal() {
-            document.getElementById('image-modal').classList.remove('active');
-        }
-    </script>
 </body>
 
 </html>
