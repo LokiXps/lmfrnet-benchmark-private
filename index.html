@@ -708,11 +708,32 @@
                     document.getElementById('view-setup').classList.add('hidden');
                     document.getElementById('view-main').classList.remove('hidden');
 
-                    // Force use of local WASM files (downloaded during setup)
-                    ort.env.wasm.wasmPaths = './';
-                    ort.env.wasm.numThreads = 1;
-                    ort.env.wasm.simd = false;
-                    ort.env.wasm.proxy = false;
+                    // Manual WASM Loading to bypass internal fetch issues
+                    try {
+                        statusEl.textContent = "WASMロード中...";
+                        const wasmResponse = await fetch('./ort-wasm.wasm');
+                        if (!wasmResponse.ok) throw new Error("WASM file not found in cache");
+                        const wasmBuffer = await wasmResponse.arrayBuffer();
+
+                        // Verify size (approx 9MB)
+                        if (wasmBuffer.byteLength < 1000000) {
+                            throw new Error(`Invalid WASM size: ${wasmBuffer.byteLength}`);
+                        }
+
+                        ort.env.wasm.wasmBinary = wasmBuffer;
+                        ort.env.wasm.numThreads = 1;
+                        ort.env.wasm.simd = false;
+                        ort.env.wasm.proxy = false;
+
+                        console.log("WASM loaded manually via ArrayBuffer");
+
+                    } catch (e) {
+                        console.error("WASM Load Error:", e);
+                        alert("WASMファイルの読み込みに失敗しました。\n再ダウンロードしてください。\n" + e.message);
+                        localStorage.removeItem('setup_complete');
+                        location.reload();
+                        return;
+                    }
 
                     initModelSelect();
                     await loadLabels();
