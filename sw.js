@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v31';
+const CACHE_NAME = 'lmfrnet-benchmark-v32';
 const ASSETS = [
     './',
     './index.html',
@@ -14,7 +14,7 @@ const ASSETS = [
     './ort.min.js',
     './ort-wasm.wasm',
     './ort-wasm-simd.wasm',
-    'https://cdn.tailwindcss.com'
+    './tailwind.min.js'
 ];
 
 self.addEventListener('install', (event) => {
