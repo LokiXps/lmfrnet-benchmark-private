@@ -783,7 +783,7 @@
 
                     const currentCount = i + 1;
                     benchAccEl.textContent = `${((correct / currentCount) * 100).toFixed(1)}%`;
-                    benchTimeEl.textContent = `${(totalTime / currentCount).toFixed(0)}ms`;
+                    benchTimeEl.innerHTML = `${(totalTime / currentCount).toFixed(1)}ms <span class="text-sm text-gray-400 font-normal">(${time.toFixed(1)}ms)</span>`;
                     benchConfEl.textContent = `${((totalConf / currentCount) * 100).toFixed(1)}%`;
                     benchProgEl.textContent = `${currentCount}/${BENCHMARK_DATA.length}`;
                     benchProgressBar.style.width = `${(currentCount / BENCHMARK_DATA.length) * 100}%`;
