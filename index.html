@@ -644,17 +644,34 @@
 
                 for (const url of assets) {
                     try {
-                        statusLabel.textContent = `ダウンロード中: ${url.split('/').pop()}`;
-                        const res = await fetch(url, { mode: 'cors', cache: 'reload' });
+                        const fileName = url.split('/').pop();
+                        statusLabel.textContent = `ダウンロード中: ${fileName}`;
+
+                        // Add timestamp to bypass Service Worker cache completely
+                        const fetchUrl = `${url}?t=${Date.now()}`;
+                        const res = await fetch(fetchUrl, { mode: 'cors', cache: 'no-store' });
+
                         if (!res.ok) {
-                            throw new Error(`Failed to download ${url} (${res.status})`);
+                            throw new Error(`Status ${res.status}`);
                         }
-                        await cache.put(url, res);
+
+                        // Verify content type to prevent caching 404 HTML pages as code
+                        const contentType = res.headers.get('content-type');
+                        if (contentType && contentType.includes('text/html')) {
+                            throw new Error(`Invalid content type: ${contentType} (Expected binary/json)`);
+                        }
+
+                        // Clone response for cache
+                        const responseToCache = res.clone();
+
+                        // Store in cache using the CLEAN url (without query params)
+                        await cache.put(url, responseToCache);
+
                     } catch (e) {
-                        console.error('Failed to cache:', url, e);
+                        console.error('Download failed:', url, e);
                         statusLabel.textContent = "エラー発生";
-                        alert(`ダウンロード失敗: ${url}\n${e.message}`);
-                        throw e; // Stop the process
+                        alert(`ダウンロード失敗: ${url}\n${e.message}\n\nインターネット接続を確認してください。`);
+                        throw e;
                     }
 
                     count++;
