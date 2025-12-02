@@ -643,10 +643,8 @@
                 throw new Error("Model session not loaded");
             }
 
-            const start = performance.now();
-            const probs = await runInferenceMainThread(pixelData);
-            const end = performance.now();
-            return { probs, time: end - start };
+            const { probs, inferenceTime } = await runInferenceMainThread(pixelData);
+            return { probs, time: inferenceTime };
         }
 
         async function loadAndCenterCrop(blob, target) {
@@ -704,10 +702,17 @@
 
             const tensor = new ort.Tensor('float32', float32Data, [1, 3, size, size]);
             const feeds = { [session.inputNames[0]]: tensor };
+
+            const start = performance.now();
             const results = await session.run(feeds);
+            const end = performance.now();
+
             const output = results[session.outputNames[0]].data;
 
-            return softmax(Array.from(output));
+            return {
+                probs: softmax(Array.from(output)),
+                inferenceTime: end - start
+            };
         }
 
         function softmax(arr) {
