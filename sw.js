@@ -1,60 +1,71 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v26';
-const CORE_ASSETS = [
+const CACHE_NAME = 'lmfrnet-benchmark-v1';
+const ASSETS = [
     './',
     './index.html',
     './style.css',
-    './script.js',
-    './worker.js',
+    './manifest.json',
     './labels.json',
     './samples.json',
-    './gallery.html',
-    './manifest.json',
-    './models_caltech101/lmfrnet.onnx',
-    './models_caltech101/lmfrnet_hires.onnx',
-    './models_caltech101/resnet18.onnx',
-    './models_caltech101/mobilenetv3_large.onnx',
     'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js',
     'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm',
     'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd.wasm',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.wasm',
-    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm',
-    'https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap'
+    'https://cdn.tailwindcss.com'
 ];
 
+// Install Event
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(CORE_ASSETS)).catch((err) => {
-            console.warn('SW install cache error', err);
-        })
+        caches.open(CACHE_NAME)
+            .then((cache) => cache.addAll(ASSETS))
     );
 });
 
+// Fetch Event
+self.addEventListener('fetch', (event) => {
+    event.respondWith(
+        caches.match(event.request)
+            .then((response) => {
+                // Cache hit - return response
+                if (response) {
+                    return response;
+                }
+                // Clone the request
+                const fetchRequest = event.request.clone();
+
+                return fetch(fetchRequest).then(
+                    (response) => {
+                        // Check if we received a valid response
+                        if (!response || response.status !== 200 || response.type !== 'basic') {
+                            return response;
+                        }
+
+                        // Clone the response
+                        const responseToCache = response.clone();
+
+                        caches.open(CACHE_NAME)
+                            .then((cache) => {
+                                // Cache new requests (including models and images)
+                                cache.put(event.request, responseToCache);
+                            });
+
+                        return response;
+                    }
+                );
+            })
+    );
+});
+
+// Activate Event (Cleanup old caches)
 self.addEventListener('activate', (event) => {
     event.waitUntil(
-        caches.keys().then((names) => Promise.all(
-            names.map((name) => (name !== CACHE_NAME ? caches.delete(name) : Promise.resolve()))
-        ))
-    );
-});
-
-self.addEventListener('fetch', (event) => {
-    if (event.request.method !== 'GET') return;
-    event.respondWith(
-        caches.open(CACHE_NAME).then((cache) => cache.match(event.request).then((cached) => {
-            const fetchAndCache = fetch(event.request).then((resp) => {
-                const shouldCache =
-                    event.request.url.startsWith(self.location.origin) ||
-                    event.request.url.includes('cdn.jsdelivr.net') ||
-                    event.request.url.includes('fonts.gstatic.com') ||
-                    event.request.url.includes('fonts.googleapis.com');
-
-                if (shouldCache && resp && resp.status === 200) {
-                    cache.put(event.request, resp.clone()).catch(() => { });
-                }
-                return resp;
-            });
-
-            return cached || fetchAndCache;
-        }))
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cacheName) => {
+                    if (cacheName !== CACHE_NAME) {
+                        return caches.delete(cacheName);
+                    }
+                })
+            );
+        })
     );
 });

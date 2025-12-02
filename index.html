@@ -7,12 +7,12 @@
     <meta name="robots" content="noindex, nofollow">
     <title>ローカル環境で画像認識精度実験</title>
     <script>
-        // Force Unregister Service Workers to clear old caches
+        // Register Service Worker for Offline Support
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function (registrations) {
-                for (let registration of registrations) {
-                    registration.unregister();
-                }
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('SW registered:', reg))
+                    .catch(err => console.log('SW registration failed:', err));
             });
         }
     </script>
