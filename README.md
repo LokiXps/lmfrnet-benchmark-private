@@ -1,23 +1,42 @@
-# LMFRNet Offline Inference Lab
+# LMFRNet Benchmark (Local)
 
-このアプリは、ブラウザ上で動作するAI推論ベンチマークツールです。
-LMFRNetなどのモデルを使用して、画像の分類（Caltech-101）をテストできます。
+このリポジトリをクローンして、PC上でローカルに実行するためのガイドです。
 
-## 使い方
+## 準備
 
-### 方法1: GitHub Pages (推奨)
-リポジトリ設定でGitHub Pagesを有効にすると、Webサイトとしてアクセスできます。
-スマホでもPCでも、URLを開くだけで使えます。オフラインキャッシュも機能します。
-
-### 方法2: ローカルで実行 (PC)
-セキュリティ制限のため、HTMLファイルを直接ダブルクリックしても動作しません。
-以下のコマンドでローカルサーバーを立ち上げてアクセスしてください。
+まず、リポジトリをダウンロード（クローン）します。
 
 ```bash
-# Pythonがインストールされている場合
-python3 -m http.server 8000
+git clone https://github.com/LokiXps/lmfrnet-benchmark-private.git
+cd lmfrnet-benchmark-private
 ```
-その後、ブラウザで `http://localhost:8000` を開きます。
 
-### 方法3: スマホでローカル実行
-「Simple HTTP Server」などのアプリを使用して、このフォルダをホストし、ブラウザで `http://localhost:8080` などにアクセスしてください。
+## 使い方 1: Webアプリ版 (GUI)
+
+ブラウザ上でグラフィカルに操作したい場合です。
+セキュリティ制限（CORS）のため、HTMLを直接開くのではなく、簡易サーバー経由で開く必要があります。
+
+1. `public` フォルダに移動します。
+   ```bash
+   cd public
+   ```
+2. ローカルサーバーを起動します。
+   ```bash
+   python3 -m http.server 8080
+   ```
+3. ブラウザで以下のURLを開きます。
+   [http://localhost:8080](http://localhost:8080)
+
+## 使い方 2: Pythonスクリプト版 (CUI)
+
+コマンドラインで直接推論を実行したい場合です。
+
+1. 必要なライブラリをインストールします。
+   ```bash
+   pip install onnxruntime numpy pillow
+   ```
+2. スクリプトを実行します。
+   ```bash
+   # 精度検証
+   python3 scripts/verify_accuracy.py
+   ```
