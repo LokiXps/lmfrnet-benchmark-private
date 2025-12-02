@@ -621,8 +621,8 @@
             enableRunButtons(false);
 
             try {
-                // Cache busting
-                const loadPath = `${path}?t=${Date.now()}`;
+                // Remove cache busting for PWA to work offline
+                const loadPath = path;
 
                 // Low memory options for mobile
                 const options = {
