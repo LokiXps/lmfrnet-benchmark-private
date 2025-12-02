@@ -646,11 +646,15 @@
                     try {
                         statusLabel.textContent = `ダウンロード中: ${url.split('/').pop()}`;
                         const res = await fetch(url, { mode: 'cors', cache: 'reload' });
-                        if (res.ok) {
-                            await cache.put(url, res);
+                        if (!res.ok) {
+                            throw new Error(`Failed to download ${url} (${res.status})`);
                         }
+                        await cache.put(url, res);
                     } catch (e) {
                         console.error('Failed to cache:', url, e);
+                        statusLabel.textContent = "エラー発生";
+                        alert(`ダウンロード失敗: ${url}\n${e.message}`);
+                        throw e; // Stop the process
                     }
 
                     count++;

@@ -39,7 +39,12 @@ self.addEventListener('fetch', (event) => {
                 if (!resp || resp.status !== 200) return resp;
                 caches.open(CACHE_NAME).then((cache) => cache.put(event.request, resp.clone())).catch(() => { });
                 return resp;
-            }).catch(() => caches.match('./index.html'));
+            }).catch(() => {
+                // Only fallback to index.html for navigation requests (page loads)
+                if (event.request.mode === 'navigate') {
+                    return caches.match('./index.html');
+                }
+            });
         })
     );
 });
