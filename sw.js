@@ -1,12 +1,14 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v32';
+const CACHE_NAME = 'lmfrnet-benchmark-v33';
 const ASSETS = [
     './',
     './index.html',
+    './style.css',
     './manifest.json',
     './labels.json',
     './samples.json',
     './icon-192.png',
     './icon-512.png',
+    './worker.js',
     './models_caltech101/lmfrnet.onnx',
     './models_caltech101/lmfrnet_hires.onnx',
     './models_caltech101/mobilenetv3_large.onnx',
@@ -14,6 +16,11 @@ const ASSETS = [
     './ort.min.js',
     './ort-wasm.wasm',
     './ort-wasm-simd.wasm',
+    './ort-wasm-threaded.wasm',
+    './ort-wasm-simd-threaded.wasm',
+    './ort-wasm-simd-threaded.mjs',
+    './ort-wasm-simd-threaded.jsep.mjs',
+    './ort-wasm-threaded.jsep.mjs',
     './tailwind.min.js'
 ];
 
