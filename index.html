@@ -598,153 +598,28 @@
             return false;
         };
 
-        // Setup Flow
-        async function startSetup() {
-            const btn = document.getElementById('btn-download-start');
-            const progressDiv = document.getElementById('setup-progress');
-            const statusBar = document.getElementById('setup-bar');
-            const statusText = document.getElementById('setup-percent');
-            const statusLabel = document.getElementById('setup-status-text');
-
-            if (!confirm("ダウンロードを開始しますか？\n(約100MB)")) return;
-
-            btn.disabled = true;
-            btn.classList.add('opacity-50', 'cursor-not-allowed');
-            progressDiv.classList.remove('hidden');
-
-            const CACHE_NAME = 'lmfrnet-benchmark-v2';
-
-            try {
-                // Assets List
-                let assets = [
-                    './index.html',
-                    './manifest.json',
-                    './labels.json',
-                    './samples.json',
-                    './models_caltech101/lmfrnet.onnx',
-                    './models_caltech101/lmfrnet_hires.onnx',
-                    './models_caltech101/mobilenetv3_large.onnx',
-                    './models_caltech101/resnet18.onnx',
-                    './ort.min.js',
-                    './ort-wasm.wasm',
-                    './ort-wasm-simd.wasm',
-                    './tailwind.min.js'
-                ];
-
-                statusLabel.textContent = "リスト取得中...";
-                const samplesRes = await fetch('samples.json');
-                const samples = await samplesRes.json();
-                samples.forEach(s => assets.push(`./samples/${s.filename}`));
-
-                const total = assets.length;
-                let count = 0;
-
-                const cache = await caches.open(CACHE_NAME);
-
-                for (const url of assets) {
-                    try {
-                        const fileName = url.split('/').pop();
-                        statusLabel.textContent = `ダウンロード中: ${fileName}`;
-
-                        // Add timestamp to bypass Service Worker cache completely
-                        const fetchUrl = `${url}?t=${Date.now()}`;
-                        const res = await fetch(fetchUrl, { mode: 'cors', cache: 'no-store' });
-
-                        if (!res.ok) {
-                            throw new Error(`Status ${res.status}`);
-                        }
-
-                        // Verify content type to prevent caching 404 HTML pages as code
-                        const contentType = res.headers.get('content-type');
-                        if (contentType && contentType.includes('text/html')) {
-                            // Allow HTML files explicitly
-                            if (!url.includes('.html')) {
-                                throw new Error(`Invalid content type: ${contentType} (Expected binary/json)`);
-                            }
-                        }
-
-                        // Clone response for cache
-                        const responseToCache = res.clone();
-
-                        // Store in cache using the CLEAN url (without query params)
-                        await cache.put(url, responseToCache);
-
-                    } catch (e) {
-                        console.error('Download failed:', url, e);
-                        statusLabel.textContent = "エラー発生";
-                        alert(`ダウンロード失敗: ${url}\n${e.message}\n\nインターネット接続を確認してください。`);
-                        throw e;
-                    }
-
-                    count++;
-                    const percent = Math.floor((count / total) * 100);
-                    statusBar.style.width = `${percent}%`;
-                    statusText.textContent = `${percent}%`;
-                }
-
-                localStorage.setItem('setup_complete', 'true');
-
-                statusLabel.textContent = "完了！";
-                statusBar.classList.remove('bg-blue-500');
-                statusBar.classList.add('bg-green-500');
-
-                setTimeout(() => {
-                    alert("セットアップ完了！\nオフラインで推論可能です。");
-                    location.reload();
-                }, 500);
-
-            } catch (e) {
-                alert("エラー: " + e.message);
-                btn.disabled = false;
-                btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            }
-        }
-
         // Init
         window.addEventListener('load', async () => {
             try {
-                // Check if setup is done
-                if (localStorage.getItem('setup_complete')) {
-                    document.getElementById('view-setup').classList.add('hidden');
-                    document.getElementById('view-main').classList.remove('hidden');
+                // Always show main view immediately
+                document.getElementById('view-setup').classList.add('hidden');
+                document.getElementById('view-main').classList.remove('hidden');
 
-                    // Manual WASM Loading to bypass internal fetch issues
-                    try {
-                        statusEl.textContent = "WASMロード中...";
-                        const wasmResponse = await fetch('./ort-wasm.wasm');
-                        if (!wasmResponse.ok) throw new Error("WASM file not found in cache");
-                        const wasmBuffer = await wasmResponse.arrayBuffer();
+                // Configure ONNX Runtime to use local WASM files
+                ort.env.wasm.wasmPaths = './';
+                ort.env.wasm.numThreads = 1;
+                ort.env.wasm.simd = false;
+                ort.env.wasm.proxy = false;
 
-                        // Verify size (approx 9MB)
-                        if (wasmBuffer.byteLength < 1000000) {
-                            throw new Error(`Invalid WASM size: ${wasmBuffer.byteLength}`);
-                        }
+                initModelSelect();
+                await loadLabels();
+                await loadSamples();
+                renderDatasetGrid();
+                await loadModel(MODEL_OPTIONS[0].path);
 
-                        ort.env.wasm.wasmBinary = wasmBuffer;
-                        ort.env.wasm.numThreads = 1;
-                        ort.env.wasm.simd = false;
-                        ort.env.wasm.proxy = false;
-
-                        console.log("WASM loaded manually via ArrayBuffer");
-
-                    } catch (e) {
-                        console.error("WASM Load Error:", e);
-                        alert("WASMファイルの読み込みに失敗しました。\n再ダウンロードしてください。\n" + e.message);
-                        localStorage.removeItem('setup_complete');
-                        location.reload();
-                        return;
-                    }
-
-                    initModelSelect();
-                    await loadLabels();
-                    await loadSamples();
-                    renderDatasetGrid();
-                    await loadModel(MODEL_OPTIONS[0].path);
-                } else {
-                    // Show Setup View (Default)
-                }
             } catch (e) {
-                alert("Init Error: " + e.message);
+                console.error("Init Error:", e);
+                alert("初期化エラー: " + e.message);
             }
         });
 
