@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lmfrnet-benchmark-v36';
+const CACHE_NAME = 'lmfrnet-benchmark-v37';
 const ASSETS = [
     './',
     './index.html',
@@ -13,18 +13,19 @@ const ASSETS = [
     './models_caltech101/lmfrnet_hires.onnx',
     './models_caltech101/mobilenetv3_large.onnx',
     './models_caltech101/resnet18.onnx',
-    './ort.min.js',
-    './ort-wasm.wasm',
-    './ort-wasm-simd.wasm',
-    './ort-wasm-threaded.wasm',
-    './ort-wasm-simd-threaded.wasm',
-    './ort-wasm-simd-threaded.mjs',
-    './ort-wasm-simd-threaded.jsep.mjs',
-    './ort-wasm-threaded.jsep.mjs',
-    './ort-wasm-simd-threaded.jsep.wasm',
-    './ort-wasm-threaded.jsep.wasm',
-    './ort-wasm-simd-threaded.jsep.js',
-    './ort-wasm-threaded.jsep.js',
+    // CDNキャッシュ用の別枠 (リソースの実体はCDNから取る)
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort.min.js',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.mjs',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.mjs',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.jsep.mjs',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.jsep.wasm',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-simd-threaded.jsep.js',
+    'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/ort-wasm-threaded.jsep.js',
     './tailwind.min.js'
 ];
 

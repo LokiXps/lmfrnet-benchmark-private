@@ -605,11 +605,11 @@
                 document.getElementById('view-setup').classList.add('hidden');
                 document.getElementById('view-main').classList.remove('hidden');
 
-                // Configure ONNX Runtime to use local WASM files
-                ort.env.wasm.wasmPaths = './';
-                ort.env.wasm.numThreads = 1;       // 1 threadに固定（threaded jsepを避ける）
-                ort.env.wasm.simd = false;         // SIMD無効（simd系モジュールを避ける）
-                ort.env.wasm.proxy = false;        // worker proxyなし（単純ロード）
+                // Use official ONNX Runtime Web CDN assets
+                ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web/dist/';
+                ort.env.wasm.numThreads = 1; // iPhone安定優先
+                ort.env.wasm.simd = true;
+                ort.env.wasm.proxy = false;
 
                 initModelSelect();
                 await loadLabels();
